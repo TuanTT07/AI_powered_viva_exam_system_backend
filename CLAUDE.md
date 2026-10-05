@@ -27,14 +27,28 @@
   `src/main/resources/db/migration/V{n}__mo_ta.sql`, không sửa file migration đã chạy.
 - Gọi AI qua interface (`AiClient`), không gọi thẳng SDK trong service.
 
+## API conventions
+- Controller luôn trả `ResponseEntity<...>`: 200 `ok(...)`, 201 `created(location).body(...)` khi tạo mới,
+  204 `noContent()` khi xoá / thao tác không cần body.
+- API có phân trang trả `PageResponse<T>` (common/dto), tạo Pageable bằng `PageableUtils.of(page, size, sort)`.
+- Tìm kiếm theo từ khoá: service gọi `SearchUtils.toLikePattern(keyword)` rồi truyền vào `LIKE :keyword`.
+- Service: `@Transactional(readOnly = true)` ở class, hàm ghi đánh `@Transactional`; map Entity -> DTO bên trong service.
+- API cho Admin đặt dưới `/api/admin/**`.
+
 ## Package Structure (chia theo feature)
 src/main/java/cocxanhcoder/viva/exam/system
 ├── Application.java
 ├── common/            # dùng chung cho mọi module
-│   ├── config/        # SecurityConfig, ...
+│   ├── config/        # SecurityConfig (+ PasswordEncoder BCrypt), ...
+│   ├── dto/           # PageResponse
+│   ├── util/          # PageableUtils, SearchUtils
 │   └── exception/     # custom exception + GlobalExceptionHandler
-├── academic/          # Role, User, Course (bảng dùng chung, module khác tham chiếu tới)
-│   ├── entity/
+├── academic/          # Quản trị hệ thống: tài khoản, role, môn học, phân công GV - môn
+│   ├── controller/    # AdminUserController, AdminRoleController, AdminCourseController
+│   ├── service/       # UserService, CourseService
+│   ├── dto/
+│   ├── mapper/
+│   ├── entity/        # Role, User, Course, Document
 │   └── repository/
 ├── questionbank/      # Module 1: ngân hàng câu hỏi + rubric
 │   ├── controller/
@@ -51,6 +65,7 @@ Module 1 (questionbank) → Module 3 (interview) → Module 4 (grading)
 
 ## Database
 - Schema gốc: `V1__init_schema.sql` (12 bảng, theo thiết kế DB của nhóm). Role mặc định: `V2__seed_roles.sql`.
+  Phân công giảng viên - môn học (N-N): `V3__course_lecturers.sql` -> `Course.lecturers` (`@ManyToMany`).
 - Entity: id `UUID` (`GenerationType.UUID`), thời gian `OffsetDateTime` (TIMESTAMPTZ),
   cột TEXT dùng `@Column(columnDefinition = "TEXT")`, enum dùng `@Enumerated(EnumType.STRING)`.
 - Quan hệ `@ManyToOne` luôn `fetch = LAZY`. Không dùng `@Data` của Lombok cho entity (chỉ `@Getter @Setter`).
