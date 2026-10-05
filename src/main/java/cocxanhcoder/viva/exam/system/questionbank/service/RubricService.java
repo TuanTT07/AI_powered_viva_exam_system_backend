@@ -59,7 +59,7 @@ public class RubricService {
     public void delete(UUID id) {
         Rubric rubric = findEntity(id);
         if (questionRepository.countByRubricId(id) > 0) {
-            throw new BusinessException("Cannot delete a rubric that is assigned to questions", HttpStatus.CONFLICT);
+            throw new BusinessException(HttpStatus.CONFLICT,"Cannot delete a rubric that is assigned to questions" );
         }
         rubricRepository.delete(rubric);
     }
