@@ -22,14 +22,18 @@
 - Không dùng field injection
 - REST API trả về DTO
 - Validation dùng Jakarta Validation (`@Valid` + `@NotBlank`, `@Size`...)
-- Lỗi: ném `ResourceNotFoundException` / `BusinessException`, `GlobalExceptionHandler` trả về `ProblemDetail`
+- Lỗi: ném `ResourceNotFoundException` / `BusinessException`, `GlobalExceptionHandler` trả về `ApiResponse` với `success=false`
 - Schema DB: KHÔNG dùng `ddl-auto: update`. Mọi thay đổi bảng viết thành file Flyway mới
   `src/main/resources/db/migration/V{n}__mo_ta.sql`, không sửa file migration đã chạy.
 - Gọi AI qua interface (`AiClient`), không gọi thẳng SDK trong service.
 
 ## API conventions
-- Controller luôn trả `ResponseEntity<...>`: 200 `ok(...)`, 201 `created(location).body(...)` khi tạo mới,
-  204 `noContent()` khi xoá / thao tác không cần body.
+- MỌI API (thành công lẫn lỗi) trả cùng format `ApiResponse<T>` (common/dto):
+  `{ "success": true, "status": 200, "message": "Lấy dữ liệu thành công", "data": {...} }`
+- Controller trả `ResponseEntity<ApiResponse<T>>`, dùng helper:
+  `ApiResponse.ok(message, data)` (200), `ApiResponse.ok(message)` (200, data = null, dùng cho xoá),
+  `ApiResponse.created(location, message, data)` (201). Không dùng 204 vì 204 không có body.
+- Lỗi validation: `status = 400`, `data` = map `{ field: message }`.
 - API có phân trang trả `PageResponse<T>` (common/dto), tạo Pageable bằng `PageableUtils.of(page, size, sort)`.
 - Tìm kiếm theo từ khoá: service gọi `SearchUtils.toLikePattern(keyword)` rồi truyền vào `LIKE :keyword`.
 - Service: `@Transactional(readOnly = true)` ở class, hàm ghi đánh `@Transactional`; map Entity -> DTO bên trong service.
@@ -40,7 +44,7 @@ src/main/java/cocxanhcoder/viva/exam/system
 ├── Application.java
 ├── common/            # dùng chung cho mọi module
 │   ├── config/        # SecurityConfig (+ PasswordEncoder BCrypt), ...
-│   ├── dto/           # PageResponse
+│   ├── dto/           # ApiResponse, PageResponse
 │   ├── util/          # PageableUtils, SearchUtils
 │   └── exception/     # custom exception + GlobalExceptionHandler
 ├── academic/          # Quản trị hệ thống: tài khoản, role, môn học, phân công GV - môn
@@ -69,6 +73,11 @@ Module 1 (questionbank) → Module 3 (interview) → Module 4 (grading)
 - Entity: id `UUID` (`GenerationType.UUID`), thời gian `OffsetDateTime` (TIMESTAMPTZ),
   cột TEXT dùng `@Column(columnDefinition = "TEXT")`, enum dùng `@Enumerated(EnumType.STRING)`.
 - Quan hệ `@ManyToOne` luôn `fetch = LAZY`. Không dùng `@Data` của Lombok cho entity (chỉ `@Getter @Setter`).
+
+## Cấu hình môi trường
+- Biến môi trường để trong `.env` ở thư mục gốc (không commit). Mẫu: `.env.example` (có commit).
+- Spring đọc `.env` qua `spring.config.import: optional:file:.env[.properties]`; Docker Compose tự đọc `.env`.
+- Thêm biến mới: thêm vào cả `.env.example` và dùng `${TEN_BIEN:mac_dinh}` trong `application.yml`.
 
 ## Ghi chú
 - `SecurityConfig` hiện đang `permitAll` để dev; sẽ thay bằng JWT + role (Admin/Lecturer/Student).

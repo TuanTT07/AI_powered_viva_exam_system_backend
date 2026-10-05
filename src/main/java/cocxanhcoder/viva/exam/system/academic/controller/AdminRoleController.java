@@ -2,6 +2,7 @@ package cocxanhcoder.viva.exam.system.academic.controller;
 
 import cocxanhcoder.viva.exam.system.academic.dto.RoleResponse;
 import cocxanhcoder.viva.exam.system.academic.service.UserService;
+import cocxanhcoder.viva.exam.system.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,7 @@ public class AdminRoleController {
 
     @GetMapping
     @Operation(summary = "Danh sách role: ADMIN, LECTURER, STUDENT")
-    public ResponseEntity<List<RoleResponse>> getRoles() {
-        return ResponseEntity.ok(userService.getRoles());
+    public ResponseEntity<ApiResponse<List<RoleResponse>>> getRoles() {
+        return ApiResponse.ok("Lấy danh sách role thành công", userService.getRoles());
     }
 }

@@ -1,5 +1,6 @@
 package cocxanhcoder.viva.exam.system.common.exception;
 
+import cocxanhcoder.viva.exam.system.common.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,18 +19,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Bắt lỗi tập trung cho TẤT CẢ controller, trả về chuẩn ProblemDetail (RFC 9457):
+ * Bắt lỗi tập trung cho TẤT CẢ controller, trả về cùng format ApiResponse như lúc thành công:
  * {
- *   "type": "about:blank",
- *   "title": "Không tìm thấy dữ liệu",
+ *   "success": false,
  *   "status": 404,
- *   "detail": "User không tồn tại (id = ...)",
- *   "instance": "/api/admin/users/..."
+ *   "message": "User không tồn tại (id = ...)",
+ *   "data": null
  * }
  *
  * Kế thừa ResponseEntityExceptionHandler: Spring đã xử lý sẵn các lỗi chuẩn của Spring MVC
  * (sai HTTP method 405, sai kiểu tham số như UUID không hợp lệ 400, body JSON hỏng 400, ...).
- * Ở đây chỉ bổ sung các lỗi của riêng mình.
+ * Ta override handleExceptionInternal để các lỗi đó cũng được bọc vào ApiResponse.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -38,36 +38,36 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** 404 - không tìm thấy dữ liệu. */
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ProblemDetail> handleNotFound(ResourceNotFoundException ex) {
-        return problem(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu", ex.getMessage());
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
+        return ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), null);
     }
 
     /** Lỗi nghiệp vụ - status lấy từ exception (400, 409...). */
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ProblemDetail> handleBusiness(BusinessException ex) {
-        return problem(ex.getStatus(), "Yêu cầu không hợp lệ", ex.getMessage());
+    public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException ex) {
+        return ApiResponse.error(ex.getStatus(), ex.getMessage(), null);
     }
 
     /** 409 - vi phạm ràng buộc DB (trùng UNIQUE, khoá ngoại...) mà service chưa kiểm tra trước. */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ProblemDetail> handleDataIntegrity(DataIntegrityViolationException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Data integrity violation: {}", ex.getMessage());
-        return problem(HttpStatus.CONFLICT, "Xung đột dữ liệu",
-                "Dữ liệu bị trùng hoặc đang được sử dụng ở nơi khác");
+        return ApiResponse.error(HttpStatus.CONFLICT,
+                "Dữ liệu bị trùng hoặc đang được sử dụng ở nơi khác", null);
     }
 
     /** 500 - lỗi không lường trước. Log đầy đủ để debug, nhưng KHÔNG trả chi tiết lỗi ra cho client. */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
+    public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống",
-                "Đã có lỗi xảy ra, vui lòng thử lại sau");
+        return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Đã có lỗi xảy ra, vui lòng thử lại sau", null);
     }
 
     /**
      * 400 - lỗi validation (@Valid + @NotBlank, @Email...).
-     * Trả thêm field "errors" để FE hiện lỗi dưới từng ô input:
-     * "errors": { "email": "Email không đúng định dạng", "fullName": "Họ tên không được để trống" }
+     * data chứa lỗi từng field để FE hiện dưới từng ô input:
+     * "data": { "email": "Email không đúng định dạng", "fullName": "Họ tên không được để trống" }
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
@@ -78,15 +78,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ex.getBindingResult().getFieldErrors()
                 .forEach(error -> errors.putIfAbsent(error.getField(), error.getDefaultMessage()));
 
-        ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dữ liệu gửi lên không hợp lệ");
-        body.setTitle("Lỗi validation");
-        body.setProperty("errors", errors);
+        ApiResponse<Map<String, String>> body =
+                new ApiResponse<>(false, HttpStatus.BAD_REQUEST.value(), "Dữ liệu gửi lên không hợp lệ", errors);
         return ResponseEntity.badRequest().body(body);
     }
 
-    private ResponseEntity<ProblemDetail> problem(HttpStatusCode status, String title, String detail) {
-        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
-        body.setTitle(title);
-        return ResponseEntity.status(status).body(body);
+    /**
+     * Mọi lỗi chuẩn khác của Spring MVC (405, 415, sai kiểu tham số...) đều đi qua hàm này.
+     * Mặc định Spring trả ProblemDetail -> ta đổi sang ApiResponse cho thống nhất.
+     */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex,
+                                                             Object body,
+                                                             HttpHeaders headers,
+                                                             HttpStatusCode statusCode,
+                                                             WebRequest request) {
+        String message = (body instanceof ProblemDetail problem && problem.getDetail() != null)
+                ? problem.getDetail()
+                : ex.getMessage();
+
+        ApiResponse<Void> apiBody = new ApiResponse<>(false, statusCode.value(), message, null);
+        return ResponseEntity.status(statusCode).headers(headers).body(apiBody);
     }
 }
