@@ -1,0 +1,17 @@
+# PostgreSQL cho môi trường dev.
+# Chạy:  docker compose up -d      Dừng:  docker compose down
+services:
+  postgres:
+    image: postgres:17
+    container_name: aives-postgres
+    environment:
+      POSTGRES_DB: aives
+      POSTGRES_USER: aives
+      POSTGRES_PASSWORD: aives
+    ports:
+      - "5432:5432"
+    volumes:
+      - aives-pgdata:/var/lib/postgresql/data
+
+volumes:
+  aives-pgdata:
