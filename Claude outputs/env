@@ -1,0 +1,20 @@
+# ==========================================================
+# Biến môi trường cho máy LOCAL - KHÔNG commit file này (.gitignore đã chặn)
+# Dùng chung cho:
+#   - Spring Boot  : application.yml import qua spring.config.import
+#   - Docker Compose: compose.yaml tự đọc file .env cùng thư mục
+# Format: KEY=value (không dấu cách quanh "=", không cần ngoặc kép)
+# ==========================================================
+
+# ---------- Database (PostgreSQL) ----------
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=aives
+DB_USERNAME=aives
+DB_PASSWORD=aives
+
+# ---------- Server ----------
+SERVER_PORT=8080
+
+# ---------- AI (dùng cho module 3, 4 - điền khi tích hợp) ----------
+AI_API_KEY=

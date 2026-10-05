@@ -2,8 +2,12 @@ spring:
   application:
     name: viva.exam.system
 
-  # Mặc định trỏ tới Postgres trong compose.yaml.
-  # Muốn dùng DB khác thì set biến môi trường DB_URL / DB_USERNAME / DB_PASSWORD.
+  # Đọc biến từ file .env ở thư mục gốc dự án (format giống .properties).
+  # "optional:" = không có file .env cũng không lỗi, khi đó dùng giá trị mặc định sau dấu ":" bên dưới.
+  # Thứ tự ưu tiên: biến môi trường hệ điều hành > .env > giá trị mặc định.
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aives}
     username: ${DB_USERNAME:aives}
@@ -24,8 +28,13 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+# Cấu hình riêng của AIVES
+app:
+  ai:
+    api-key: ${AI_API_KEY:}

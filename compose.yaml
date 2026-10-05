@@ -1,15 +1,16 @@
 # PostgreSQL cho môi trường dev.
 # Chạy:  docker compose up -d      Dừng:  docker compose down
+# Giá trị ${...} lấy từ file .env cùng thư mục; phần sau ":-" là giá trị mặc định nếu .env không có.
 services:
   postgres:
     image: postgres:17
     container_name: aives-postgres
     environment:
-      POSTGRES_DB: aives
-      POSTGRES_USER: aives
-      POSTGRES_PASSWORD: aives
+      POSTGRES_DB: ${DB_NAME:-aives}
+      POSTGRES_USER: ${DB_USERNAME:-aives}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aives}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - aives-pgdata:/var/lib/postgresql/data
 

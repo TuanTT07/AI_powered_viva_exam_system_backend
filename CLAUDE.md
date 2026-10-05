@@ -70,5 +70,10 @@ Module 1 (questionbank) → Module 3 (interview) → Module 4 (grading)
   cột TEXT dùng `@Column(columnDefinition = "TEXT")`, enum dùng `@Enumerated(EnumType.STRING)`.
 - Quan hệ `@ManyToOne` luôn `fetch = LAZY`. Không dùng `@Data` của Lombok cho entity (chỉ `@Getter @Setter`).
 
+## Cấu hình môi trường
+- Biến môi trường để trong `.env` ở thư mục gốc (không commit). Mẫu: `.env.example` (có commit).
+- Spring đọc `.env` qua `spring.config.import: optional:file:.env[.properties]`; Docker Compose tự đọc `.env`.
+- Thêm biến mới: thêm vào cả `.env.example` và dùng `${TEN_BIEN:mac_dinh}` trong `application.yml`.
+
 ## Ghi chú
 - `SecurityConfig` hiện đang `permitAll` để dev; sẽ thay bằng JWT + role (Admin/Lecturer/Student).
