@@ -5,6 +5,7 @@ import cocxanhcoder.viva.exam.system.academic.dto.CourseRequest;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.LecturerResponse;
 import cocxanhcoder.viva.exam.system.academic.service.CourseService;
+import cocxanhcoder.viva.exam.system.common.dto.ApiResponse;
 import cocxanhcoder.viva.exam.system.common.dto.PageResponse;
 import cocxanhcoder.viva.exam.system.common.util.PageableUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ import java.util.UUID;
 
 /**
  * API quản lý môn học và phân công giảng viên phụ trách môn (cho Admin).
+ * Mọi API trả về format ApiResponse { success, status, message, data }.
  *
  * Phân công dùng URL dạng "tài nguyên con":
  *   PUT    /api/admin/courses/{courseId}/lecturers/{lecturerId}  -> gán giảng viên vào môn
@@ -51,65 +53,68 @@ public class AdminCourseController {
     /** GET /api/admin/courses?keyword=swd&page=0&size=10 */
     @GetMapping
     @Operation(summary = "Danh sách môn học (tìm theo mã / tên, phân trang)")
-    public ResponseEntity<PageResponse<CourseResponse>> searchCourses(
+    public ResponseEntity<ApiResponse<PageResponse<CourseResponse>>> searchCourses(
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         var pageable = PageableUtils.of(page, size, Sort.by("courseCode"));
-        return ResponseEntity.ok(courseService.searchCourses(keyword, pageable));
+        return ApiResponse.ok("Lấy danh sách môn học thành công",
+                courseService.searchCourses(keyword, pageable));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết môn học kèm danh sách giảng viên")
-    public ResponseEntity<CourseDetailResponse> getCourse(@PathVariable UUID id) {
-        return ResponseEntity.ok(courseService.getCourse(id));
+    public ResponseEntity<ApiResponse<CourseDetailResponse>> getCourse(@PathVariable UUID id) {
+        return ApiResponse.ok("Lấy thông tin môn học thành công", courseService.getCourse(id));
     }
 
     @PostMapping
     @Operation(summary = "Tạo môn học")
-    public ResponseEntity<CourseDetailResponse> createCourse(@Valid @RequestBody CourseRequest request) {
+    public ResponseEntity<ApiResponse<CourseDetailResponse>> createCourse(@Valid @RequestBody CourseRequest request) {
         CourseDetailResponse created = courseService.createCourse(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.id())
                 .toUri();
-        return ResponseEntity.created(location).body(created);
+        return ApiResponse.created(location, "Tạo môn học thành công", created);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật môn học")
-    public ResponseEntity<CourseDetailResponse> updateCourse(@PathVariable UUID id,
-                                                             @Valid @RequestBody CourseRequest request) {
-        return ResponseEntity.ok(courseService.updateCourse(id, request));
+    public ResponseEntity<ApiResponse<CourseDetailResponse>> updateCourse(@PathVariable UUID id,
+                                                                          @Valid @RequestBody CourseRequest request) {
+        return ApiResponse.ok("Cập nhật môn học thành công", courseService.updateCourse(id, request));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Xoá môn học (chỉ khi chưa có câu hỏi / kỳ thi)")
-    public ResponseEntity<Void> deleteCourse(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteCourse(@PathVariable UUID id) {
         courseService.deleteCourse(id);
-        return ResponseEntity.noContent().build();
+        return ApiResponse.ok("Xoá môn học thành công");
     }
 
     // ===================== PHÂN CÔNG GIẢNG VIÊN =====================
 
     @GetMapping("/{courseId}/lecturers")
     @Operation(summary = "Danh sách giảng viên phụ trách môn")
-    public ResponseEntity<List<LecturerResponse>> getLecturers(@PathVariable UUID courseId) {
-        return ResponseEntity.ok(courseService.getLecturersOfCourse(courseId));
+    public ResponseEntity<ApiResponse<List<LecturerResponse>>> getLecturers(@PathVariable UUID courseId) {
+        return ApiResponse.ok("Lấy danh sách giảng viên thành công",
+                courseService.getLecturersOfCourse(courseId));
     }
 
     @PutMapping("/{courseId}/lecturers/{lecturerId}")
     @Operation(summary = "Phân công giảng viên phụ trách môn")
-    public ResponseEntity<CourseDetailResponse> assignLecturer(@PathVariable UUID courseId,
-                                                               @PathVariable UUID lecturerId) {
-        return ResponseEntity.ok(courseService.assignLecturer(courseId, lecturerId));
+    public ResponseEntity<ApiResponse<CourseDetailResponse>> assignLecturer(@PathVariable UUID courseId,
+                                                                            @PathVariable UUID lecturerId) {
+        return ApiResponse.ok("Phân công giảng viên thành công",
+                courseService.assignLecturer(courseId, lecturerId));
     }
 
     @DeleteMapping("/{courseId}/lecturers/{lecturerId}")
     @Operation(summary = "Gỡ giảng viên khỏi môn")
-    public ResponseEntity<Void> unassignLecturer(@PathVariable UUID courseId,
-                                                 @PathVariable UUID lecturerId) {
+    public ResponseEntity<ApiResponse<Void>> unassignLecturer(@PathVariable UUID courseId,
+                                                              @PathVariable UUID lecturerId) {
         courseService.unassignLecturer(courseId, lecturerId);
-        return ResponseEntity.noContent().build();
+        return ApiResponse.ok("Gỡ phân công giảng viên thành công");
     }
 }
