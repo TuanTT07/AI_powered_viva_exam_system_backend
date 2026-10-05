@@ -19,6 +19,11 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Role {
 
+    // Tên các role mặc định (seed trong V2__seed_roles.sql), dùng thay cho chuỗi "gõ tay" rải rác trong code
+    public static final String ADMIN = "ADMIN";
+    public static final String LECTURER = "LECTURER";
+    public static final String STUDENT = "STUDENT";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
