@@ -1,0 +1,229 @@
+{
+	"info": {
+		"_postman_id": "aives-module2-exam-management",
+		"name": "AIVES - Module 2 Exam Management APIs",
+		"description": "Postman Collection test toàn bộ quy trình Module 2: Quản lý kỳ thi & lịch thi",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Tạo Kỳ thi Mới (Create Exam)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"title\": \"Kỳ thi Vấn đáp Giữa kỳ Lập trình Java CS101\",\n  \"startTime\": \"2026-10-10T08:00:00+07:00\",\n  \"endTime\": \"2026-10-10T12:00:00+07:00\",\n  \"examConfig\": {\n    \"maxMainQuestions\": 3,\n    \"maxFollowUpQuestions\": 2,\n    \"timeLimitPerTurnSeconds\": 60,\n    \"bloomRatios\": {\n      \"REMEMBER\": 0.3,\n      \"UNDERSTAND\": 0.4,\n      \"APPLY\": 0.3\n    },\n    \"antiOverlapEnabled\": true\n  }\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams"]
+				}
+			}
+		},
+		{
+			"name": "2. Lấy Danh sách Kỳ thi (Get Exams)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams?page=0&size=10",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams"],
+					"query": [
+						{
+							"key": "page",
+							"value": "0"
+						},
+						{
+							"key": "size",
+							"value": "10"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "3. Chi tiết Kỳ thi (Get Exam Detail)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}"]
+				}
+			}
+		},
+		{
+			"name": "4. Gán Danh sách Thí sinh (Assign Candidates)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"studentIds\": [\n    \"{{studentId1}}\",\n    \"{{studentId2}}\"\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/candidates",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "candidates"]
+				}
+			}
+		},
+		{
+			"name": "5. Tự động Chia Slot Thi & Cấp phát Câu hỏi (Auto Schedule)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"studentIds\": [\n    \"{{studentId1}}\",\n    \"{{studentId2}}\"\n  ],\n  \"slotDurationMinutes\": 15,\n  \"breakDurationMinutes\": 2\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/schedule/auto",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "schedule", "auto"]
+				}
+			}
+		},
+		{
+			"name": "6. Xem Lịch thi của Thí sinh (Get Schedules)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/schedule",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "schedule"]
+				}
+			}
+		},
+		{
+			"name": "7. Đổi Ca thi Thủ công (Reschedule Candidate)",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"studentId\": \"{{studentId1}}\",\n  \"newScheduledStartTime\": \"2026-10-10T10:00:00+07:00\",\n  \"newScheduledEndTime\": \"2026-10-10T10:15:00+07:00\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/schedule/reschedule",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "schedule", "reschedule"]
+				}
+			}
+		},
+		{
+			"name": "8. Cập nhật Trạng thái Kỳ thi (Publish Exam)",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"status\": \"PUBLISHED\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/status",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "status"]
+				}
+			}
+		},
+		{
+			"name": "9. Dashboard Giám sát Ca thi Realtime (Monitor Dashboard)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/monitor",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "monitor"]
+				}
+			}
+		},
+		{
+			"name": "10. Reset Ca thi cho Thí sinh bị Sự cố (Reset Attempt)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/{{examId}}/attempts/{{attemptId}}/reset",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "exams", "{{examId}}", "attempts", "{{attemptId}}", "reset"]
+				}
+			}
+		},
+		{
+			"name": "11. Sinh viên Tra cứu Ca thi (Student My Slot)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/student/exams/{{examId}}/my-slot?studentId={{studentId1}}",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "student", "exams", "{{examId}}", "my-slot"],
+					"query": [
+						{
+							"key": "studentId",
+							"value": "{{studentId1}}"
+						}
+					]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "courseId",
+			"value": "11111111-1111-1111-1111-111111111111"
+		},
+		{
+			"key": "examId",
+			"value": "ENTER_YOUR_EXAM_UUID_HERE"
+		},
+		{
+			"key": "studentId1",
+			"value": "33333333-3333-3333-3333-333333333331"
+		},
+		{
+			"key": "studentId2",
+			"value": "33333333-3333-3333-3333-333333333332"
+		},
+		{
+			"key": "attemptId",
+			"value": "ENTER_ATTEMPT_UUID_HERE"
+		}
+	]
+}
