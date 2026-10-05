@@ -1,4 +1,4 @@
-package cocxanhcoder.viva.exam.system.interview.entity;
+package cocxanhcoder.viva.exam.system.exammgt.entity;
 
 import cocxanhcoder.viva.exam.system.academic.entity.User;
 import jakarta.persistence.CascadeType;
@@ -25,7 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** 1 lượt thi của 1 sinh viên trong 1 kỳ thi. */
+/**
+ * Entity đại diện cho ca thi cá nhân của một sinh viên trong kỳ thi.
+ */
 @Entity
 @Table(name = "exam_attempts")
 @Getter
@@ -45,17 +47,28 @@ public class ExamAttempt {
     @JoinColumn(name = "student_id", nullable = false)
     private User student;
 
+    @Column(name = "scheduled_start_time")
+    private OffsetDateTime scheduledStartTime;
+
+    @Column(name = "scheduled_end_time")
+    private OffsetDateTime scheduledEndTime;
+
     @Column(name = "start_time")
-    private OffsetDateTime startTime;
+    private OffsetDateTime actualStartTime;
 
     @Column(name = "end_time")
-    private OffsetDateTime endTime;
+    private OffsetDateTime actualEndTime;
+
+    @Column(name = "slot_number")
+    private Integer slotNumber;
+
+    @Column(name = "access_code", length = 50)
+    private String accessCode;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private ExamAttemptStatus status = ExamAttemptStatus.SCHEDULED;
 
-    // Ghi âm toàn bộ buổi thi
     @Column(name = "audio_record_url", length = 500)
     private String audioRecordUrl;
 
@@ -63,9 +76,8 @@ public class ExamAttempt {
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
-    // Các câu hỏi đã/đang hỏi trong lượt thi này
     @OneToMany(mappedBy = "examAttempt", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("createdAt ASC")
+    @OrderBy("questionOrder ASC")
     private List<QuestionAttempt> questionAttempts = new ArrayList<>();
 
     public void addQuestionAttempt(QuestionAttempt questionAttempt) {

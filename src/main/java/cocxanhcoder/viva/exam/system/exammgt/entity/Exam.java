@@ -1,8 +1,11 @@
-package cocxanhcoder.viva.exam.system.interview.entity;
+package cocxanhcoder.viva.exam.system.exammgt.entity;
 
 import cocxanhcoder.viva.exam.system.academic.entity.Course;
+import cocxanhcoder.viva.exam.system.academic.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,7 +25,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Kỳ thi vấn đáp của 1 môn học. */
+/**
+ * Entity đại diện cho Kỳ thi vấn đáp (Exam Session).
+ */
 @Entity
 @Table(name = "exams")
 @Getter
@@ -38,6 +43,10 @@ public class Exam {
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
     @Column(nullable = false)
     private String title;
 
@@ -47,10 +56,10 @@ public class Exam {
     @Column(name = "end_time", nullable = false)
     private OffsetDateTime endTime;
 
-    /*
-     * Cột JSONB: Hibernate tự chuyển Map <-> JSON.
-     * Ví dụ: {"questionCount": 3, "minutesPerQuestion": 5, "maxFollowUps": 2}
-     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 50)
+    private ExamStatus status = ExamStatus.DRAFT;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "exam_config", columnDefinition = "jsonb")
     private Map<String, Object> examConfig = new HashMap<>();
