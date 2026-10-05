@@ -1,6 +1,10 @@
 spring:
   application:
     name: viva.exam.system
+  # Nạp biến DB_URL, DB_USERNAME, DB_PASSWORD từ file .env khi chạy local.
+  # Biến môi trường thật (IntelliJ/CI/server) vẫn có độ ưu tiên cao hơn.
+  config:
+    import: optional:file:.env[.properties]
 
   # Đọc biến từ file .env ở thư mục gốc dự án (format giống .properties).
   # "optional:" = không có file .env cũng không lỗi, khi đó dùng giá trị mặc định sau dấu ":" bên dưới.
@@ -26,6 +30,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
 
 server:
   port: ${SERVER_PORT:8080}
