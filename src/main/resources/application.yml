@@ -5,13 +5,6 @@ spring:
   # Biến môi trường thật (IntelliJ/CI/server) vẫn có độ ưu tiên cao hơn.
   config:
     import: optional:file:.env[.properties]
-
-  # Đọc biến từ file .env ở thư mục gốc dự án (format giống .properties).
-  # "optional:" = không có file .env cũng không lỗi, khi đó dùng giá trị mặc định sau dấu ":" bên dưới.
-  # Thứ tự ưu tiên: biến môi trường hệ điều hành > .env > giá trị mặc định.
-  config:
-    import: optional:file:.env[.properties]
-
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aives}
     username: ${DB_USERNAME:aives}
