@@ -75,7 +75,7 @@ Module 2 đóng vai trò điều phối toàn bộ phiên thi vấn đáp, chị
 
 ---
 
-## 🗄️ 4. Cơ sở Dữ liệu & Flyway Script (`V3__enhance_exam_management.sql`)
+## 🗄️ 4. Cơ sở Dữ liệu & Flyway Script (`V4__enhance_exam_management.sql`)
 
 Cấu trúc các bảng liên quan:
 - **`exams`**: `id`, `course_id`, `title`, `start_time`, `end_time`, `status`, `exam_config` (JSONB), `created_by`, `created_at`.
