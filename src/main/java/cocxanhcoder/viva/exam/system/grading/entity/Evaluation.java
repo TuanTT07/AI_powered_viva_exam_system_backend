@@ -1,7 +1,8 @@
 package cocxanhcoder.viva.exam.system.grading.entity;
 
 import cocxanhcoder.viva.exam.system.academic.entity.User;
-import cocxanhcoder.viva.exam.system.interview.entity.QuestionAttempt;
+import cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttempt;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

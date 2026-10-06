@@ -31,4 +31,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
                           Pageable pageable);
 
     long countByRubricId(UUID rubricId);
+
+    java.util.List<Question> findByCourseIdAndStatus(UUID courseId, QuestionStatus status);
 }
+

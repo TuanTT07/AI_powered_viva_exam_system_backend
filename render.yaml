@@ -1,0 +1,30 @@
+# Cấu hình deploy Render (Blueprint). Render đọc file này khi tạo service bằng "New > Blueprint".
+services:
+  - type: web
+    name: aives-backend
+    runtime: docker
+    plan: free
+    region: singapore          # gần Supabase (ap-southeast-1) -> truy vấn DB nhanh hơn
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /v3/api-docs
+    envVars:
+      # sync: false = Render sẽ hỏi bạn nhập giá trị lúc tạo service (không lưu bí mật trong git)
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_POOL_SIZE
+        value: "3"
+      # Render tự sinh 1 chuỗi ngẫu nhiên làm khoá ký JWT
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Domain của FE khi deploy (vd: https://aives.vercel.app), cách nhau bằng dấu phẩy
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false

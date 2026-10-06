@@ -32,3 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 .env
+
+### Local / tool output ###
+Claude outputs/
+postman/

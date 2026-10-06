@@ -1,14 +1,21 @@
 spring:
   application:
     name: viva.exam.system
-  # Nạp biến DB_URL, DB_USERNAME, DB_PASSWORD từ file .env khi chạy local.
-  # Biến môi trường thật (IntelliJ/CI/server) vẫn có độ ưu tiên cao hơn.
+  # Đọc biến từ file .env ở thư mục gốc dự án (format giống .properties).
+  # "optional:" = không có file .env cũng không lỗi, khi đó dùng giá trị mặc định sau dấu ":" bên dưới.
+  # Thứ tự ưu tiên: biến môi trường thật (IntelliJ/CI/server) > .env > giá trị mặc định.
+  # LƯU Ý: mỗi key (vd "config") chỉ được xuất hiện 1 lần trong cùng 1 cấp, trùng là app không chạy.
   config:
     import: optional:file:.env[.properties]
+
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/aives}
+    # Ưu tiên DB_URL nếu .env có khai báo; nếu không thì ghép từ DB_HOST / DB_PORT / DB_NAME
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:aives}}
     username: ${DB_USERNAME:aives}
     password: ${DB_PASSWORD:aives}
+    hikari:
+      # Supabase gói free giới hạn số kết nối -> giữ pool nhỏ (mặc định của Spring là 10)
+      maximum-pool-size: ${DB_POOL_SIZE:5}
 
   jpa:
     # Schema do Flyway quản lý, Hibernate chỉ kiểm tra entity có khớp bảng không.
@@ -27,7 +34,11 @@ spring:
     baseline-version: 0
 
 server:
-  port: ${SERVER_PORT:8080}
+  # Render (và hầu hết cloud) tự cấp port qua biến PORT; chạy local thì dùng SERVER_PORT / 8080
+  port: ${PORT:${SERVER_PORT:8080}}
+  # Render đứng sau proxy HTTPS: đọc header X-Forwarded-* để app biết request gốc là https
+  # (nếu thiếu, Swagger sẽ gọi API bằng http:// và bị trình duyệt chặn)
+  forward-headers-strategy: framework
 
 springdoc:
   swagger-ui:
@@ -37,3 +48,17 @@ springdoc:
 app:
   ai:
     api-key: ${AI_API_KEY:}
+  jwt:
+    # Khoá ký token, tối thiểu 32 ký tự. Giá trị mặc định CHỈ dùng khi dev local, deploy thật phải set JWT_SECRET.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-characters}
+    # Token hết hạn sau bao nhiêu phút
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  # Tài khoản ADMIN tự tạo khi app khởi động (chỉ tạo nếu DB chưa có ADMIN nào). Để trống = không tạo.
+  bootstrap-admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_FULL_NAME:System Admin}
+    user-code: ${ADMIN_USER_CODE:ADMIN01}
+  cors:
+    # Các domain FE được phép gọi API, cách nhau bằng dấu phẩy
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}

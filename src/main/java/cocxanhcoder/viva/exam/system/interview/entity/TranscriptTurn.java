@@ -1,5 +1,7 @@
 package cocxanhcoder.viva.exam.system.interview.entity;
 
+import cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttempt;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
