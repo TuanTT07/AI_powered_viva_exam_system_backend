@@ -61,4 +61,4 @@ app:
     user-code: ${ADMIN_USER_CODE:ADMIN01}
   cors:
     # Các domain FE được phép gọi API, cách nhau bằng dấu phẩy
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://ai-powered-viva-exam-system-front-e.vercel.app,http://localhost:3000,http://localhost:5173}
