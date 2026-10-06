@@ -79,5 +79,13 @@ Module 1 (questionbank) → Module 3 (interview) → Module 4 (grading)
 - Spring đọc `.env` qua `spring.config.import: optional:file:.env[.properties]`; Docker Compose tự đọc `.env`.
 - Thêm biến mới: thêm vào cả `.env.example` và dùng `${TEN_BIEN:mac_dinh}` trong `application.yml`.
 
+## Xác thực (JWT)
+- Login: `POST /api/auth/login` -> `accessToken`; các request sau gửi header `Authorization: Bearer <token>`.
+- `GET /api/auth/me`: thông tin người đang đăng nhập (id lấy từ `jwt.getSubject()`).
+- Phân quyền trong `SecurityConfig`: `/api/admin/**` chỉ ADMIN; API khác phải đăng nhập; login + Swagger public.
+- Claim `role` trong token -> quyền `ROLE_<role>`, dùng được `hasRole('LECTURER')` / `@PreAuthorize`.
+- Lấy user hiện tại trong controller: tham số `@AuthenticationPrincipal Jwt jwt`.
+- Admin đầu tiên tự tạo khi khởi động từ `ADMIN_EMAIL` / `ADMIN_PASSWORD` (chỉ khi DB chưa có ADMIN).
+- Lỗi 401/403 trả cùng format `ApiResponse`.
+
 ## Ghi chú
-- `SecurityConfig` hiện đang `permitAll` để dev; sẽ thay bằng JWT + role (Admin/Lecturer/Student).
