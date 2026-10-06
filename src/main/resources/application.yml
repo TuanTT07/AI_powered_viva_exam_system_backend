@@ -48,3 +48,17 @@ springdoc:
 app:
   ai:
     api-key: ${AI_API_KEY:}
+  jwt:
+    # Khoá ký token, tối thiểu 32 ký tự. Giá trị mặc định CHỈ dùng khi dev local, deploy thật phải set JWT_SECRET.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-characters}
+    # Token hết hạn sau bao nhiêu phút
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  # Tài khoản ADMIN tự tạo khi app khởi động (chỉ tạo nếu DB chưa có ADMIN nào). Để trống = không tạo.
+  bootstrap-admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_FULL_NAME:System Admin}
+    user-code: ${ADMIN_USER_CODE:ADMIN01}
+  cors:
+    # Các domain FE được phép gọi API, cách nhau bằng dấu phẩy
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
