@@ -1,0 +1,20 @@
+# Cấu hình deploy Render (Blueprint). Render đọc file này khi tạo service bằng "New > Blueprint".
+services:
+  - type: web
+    name: aives-backend
+    runtime: docker
+    plan: free
+    region: singapore          # gần Supabase (ap-southeast-1) -> truy vấn DB nhanh hơn
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /v3/api-docs
+    envVars:
+      # sync: false = Render sẽ hỏi bạn nhập giá trị lúc tạo service (không lưu bí mật trong git)
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_POOL_SIZE
+        value: "3"

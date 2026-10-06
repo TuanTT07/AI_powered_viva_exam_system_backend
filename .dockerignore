@@ -1,0 +1,11 @@
+# Không đưa các file này vào lúc build Docker (nhẹ hơn và không lộ bí mật)
+target/
+.git/
+.idea/
+.vscode/
+.mvn/wrapper/maven-wrapper.jar
+.env
+postman/
+doc/
+Claude outputs/
+*.sh
