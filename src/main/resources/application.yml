@@ -60,6 +60,13 @@ springdoc:
 # Cấu hình riêng của AIVES
 app:
   ai:
+    provider: ${AI_PROVIDER:gemini}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:}
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-model: ${OPENAI_MODEL:}
+    upload-dir: ${APP_UPLOAD_DIR:uploads}
+    max-upload-bytes: ${APP_MAX_UPLOAD_BYTES:26214400}
     api-key: ${AI_API_KEY:}
   mail:
     # Địa chỉ hiển thị ở "From" - mặc định dùng chính MAIL_USERNAME (tài khoản Gmail dùng để gửi)

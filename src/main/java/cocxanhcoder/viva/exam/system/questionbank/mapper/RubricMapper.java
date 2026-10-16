@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class RubricMapper {
 
     public RubricResponse toResponse(Rubric rubric) {
-        return new RubricResponse(rubric.getId(), rubric.getRubricName(), rubric.getDescription(),
+        return new RubricResponse(rubric.getId(), rubric.getCourse().getId(), rubric.getRubricName(), rubric.getDescription(),
                 rubric.getCriteria().stream().map(this::toCriterionResponse).toList(),
                 rubric.getTotalMaxScore(), rubric.getCreatedAt());
     }

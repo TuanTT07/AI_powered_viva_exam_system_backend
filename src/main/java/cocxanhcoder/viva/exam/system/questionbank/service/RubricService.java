@@ -10,6 +10,8 @@ import cocxanhcoder.viva.exam.system.questionbank.entity.RubricCriterion;
 import cocxanhcoder.viva.exam.system.questionbank.mapper.RubricMapper;
 import cocxanhcoder.viva.exam.system.questionbank.repository.QuestionRepository;
 import cocxanhcoder.viva.exam.system.questionbank.repository.RubricRepository;
+import cocxanhcoder.viva.exam.system.academic.repository.CourseRepository;
+import cocxanhcoder.viva.exam.system.academic.entity.Course;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,40 +26,56 @@ public class RubricService {
     private final RubricRepository rubricRepository;
     private final QuestionRepository questionRepository;
     private final RubricMapper rubricMapper;
+    private final CourseRepository courseRepository;
+    private final CourseAccessService courseAccessService;
 
-    public RubricService(RubricRepository rubricRepository, QuestionRepository questionRepository, RubricMapper rubricMapper) {
+    public RubricService(RubricRepository rubricRepository, QuestionRepository questionRepository, RubricMapper rubricMapper,
+                         CourseRepository courseRepository, CourseAccessService courseAccessService) {
         this.rubricRepository = rubricRepository;
         this.questionRepository = questionRepository;
         this.rubricMapper = rubricMapper;
+        this.courseRepository = courseRepository;
+        this.courseAccessService = courseAccessService;
     }
 
-    public RubricResponse create(RubricRequest request) {
+    public RubricResponse create(UUID actorId, UUID courseId, RubricRequest request) {
+        courseAccessService.requireManager(actorId, courseId);
+        Course course = courseRepository.findById(courseId).orElseThrow(() -> new ResourceNotFoundException("Course", courseId));
         Rubric rubric = new Rubric();
+        rubric.setCourse(course);
         applyRequest(rubric, request);
         return rubricMapper.toResponse(rubricRepository.save(rubric));
     }
 
     @Transactional(readOnly = true)
-    public List<RubricResponse> findAll() {
-        return rubricRepository.findAll().stream()
+    public List<RubricResponse> findAll(UUID actorId, UUID courseId) {
+        courseAccessService.requireManager(actorId, courseId);
+        return rubricRepository.findByCourseIdOrderByCreatedAtDesc(courseId).stream()
                 .map(rubric -> rubricRepository.findWithCriteriaById(rubric.getId()).orElseThrow())
                 .map(rubricMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public RubricResponse findById(UUID id) {
-        return rubricMapper.toResponse(findEntity(id));
+    public RubricResponse findById(UUID actorId, UUID courseId, UUID id) {
+        courseAccessService.requireManager(actorId, courseId);
+        Rubric rubric = findEntity(id);
+        requireCourse(rubric, courseId);
+        return rubricMapper.toResponse(rubric);
     }
 
-    public RubricResponse update(UUID id, RubricRequest request) {
+    public RubricResponse update(UUID actorId, UUID courseId, UUID id, RubricRequest request) {
+        courseAccessService.requireManager(actorId, courseId);
         Rubric rubric = findEntity(id);
+        requireCourse(rubric, courseId);
         applyRequest(rubric, request);
         return rubricMapper.toResponse(rubric);
     }
 
-    public void delete(UUID id) {
+    public void delete(UUID actorId, UUID courseId, UUID id) {
+        courseAccessService.requireManager(actorId, courseId);
         Rubric rubric = findEntity(id);
+        requireCourse(rubric, courseId);
         if (questionRepository.countByRubricId(id) > 0) {
             throw new BusinessException(HttpStatus.CONFLICT, "Không thể xoá rubric đang được gắn cho câu hỏi");
         }
@@ -79,6 +97,12 @@ public class RubricService {
             criterion.setDescription(criterionRequest.description());
             criterion.setMaxScore(criterionRequest.maxScore());
             rubric.addCriterion(criterion);
+        }
+    }
+
+    private void requireCourse(Rubric rubric, UUID courseId) {
+        if (!rubric.getCourse().getId().equals(courseId)) {
+            throw new ResourceNotFoundException("Rubric", rubric.getId());
         }
     }
 }

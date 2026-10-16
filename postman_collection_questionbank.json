@@ -1,0 +1,120 @@
+{
+  "info": {
+    "name": "AIVES – Full Question Bank Flow",
+    "description": "Chạy các request theo thứ tự số. Điền adminEmail/adminPassword trước khi chạy. Các test script tự lưu token và ID.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminEmail", "value": "admin@aives.local" },
+    { "key": "adminPassword", "value": "doi-mat-khau-nay" },
+    { "key": "adminToken", "value": "" },
+    { "key": "lecturerEmail", "value": "" },
+    { "key": "lecturerPassword", "value": "Lecturer123" },
+    { "key": "lecturerId", "value": "" },
+    { "key": "lecturerToken", "value": "" },
+    { "key": "courseId", "value": "" },
+    { "key": "rubricId", "value": "" },
+    { "key": "questionId", "value": "" },
+    { "key": "documentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00. Login as Admin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login admin thành công', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('adminToken', pm.response.json().data.accessToken);"] } }]
+    },
+    {
+      "name": "01. Create Lecturer",
+      "event": [
+        { "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('lecturerEmail', 'lecturer.' + Date.now() + '@aives.local');"] } },
+        { "listen": "test", "script": { "exec": ["pm.test('Tạo lecturer thành công', () => pm.response.to.have.status(201));", "if (pm.response.code === 201) { pm.collectionVariables.set('lecturerId', pm.response.json().data.id); } else { pm.execution.setNextRequest(null); }"] } }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"userCode\": \"LECT{{$timestamp}}\",\n  \"fullName\": \"Giảng viên Demo\",\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerPassword}}\",\n  \"roleName\": \"LECTURER\"\n}" },
+        "url": "{{baseUrl}}/api/admin/users"
+      }
+    },
+    {
+      "name": "02. Create Course",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"courseCode\": \"AIVES{{$timestamp}}\",\n  \"courseName\": \"Lập trình Java – Demo\",\n  \"department\": \"Software Engineering\"\n}" },
+        "url": "{{baseUrl}}/api/admin/courses"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Tạo course thành công', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('courseId', pm.response.json().data.id);"] } }]
+    },
+    {
+      "name": "03. Assign Lecturer to Course",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/courses/{{courseId}}/lecturers/{{lecturerId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Phân công thành công', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "04. Login as Lecturer",
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerPassword}}\"\n}" },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login lecturer thành công', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('lecturerToken', pm.response.json().data.accessToken);"] } }]
+    },
+    {
+      "name": "05. Lecturer Creates Rubric",
+      "request": {
+        "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"rubricName\": \"Rubric vấn đáp Java\",\n  \"description\": \"Đánh giá kiến thức và lập luận\",\n  \"criteria\": [\n    { \"criterionName\": \"Đúng kiến thức\", \"description\": \"Nêu đúng khái niệm\", \"maxScore\": 6 },\n    { \"criterionName\": \"Lập luận\", \"description\": \"Giải thích rõ ràng\", \"maxScore\": 4 }\n  ]\n}" },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/rubrics"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Tạo rubric thành công', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('rubricId', pm.response.json().data.id);"] } }]
+    },
+    {
+      "name": "06. Lecturer Creates Draft Question",
+      "request": {
+        "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"rubricId\": \"{{rubricId}}\",\n  \"content\": \"Phân biệt abstraction và encapsulation trong Java.\",\n  \"bloomLevel\": \"UNDERSTAND\",\n  \"aiGenerated\": false\n}" },
+        "url": "{{baseUrl}}/api/questions"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Tạo câu hỏi nháp thành công', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('questionId', pm.response.json().data.id);"] } }]
+    },
+    {
+      "name": "07. Approve Question",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/questions/{{questionId}}/approve" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Duyệt câu hỏi thành công', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "08. List Approved Questions",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/questions?courseId={{courseId}}&status=APPROVED&page=0&size=20" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Có danh sách câu hỏi', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "09. Download Import Template",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/courses/{{courseId}}/questions/import-template" }
+    },
+    {
+      "name": "10. Upload Source Document – manually attach file",
+      "description": "Trước khi Send hoặc Run collection: mở request này > Body > form-data > dòng file (kiểu File) > Select Files, chọn PDF/DOCX/PPTX trên máy. Postman không thể đóng gói file local trong collection JSON.",
+      "request": {
+        "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+        "body": { "mode": "formdata", "formdata": [{ "key": "title", "value": "Tài liệu Java", "type": "text" }, { "key": "file", "type": "file", "src": "" }] },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/documents"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Upload tài liệu thành công', () => pm.response.to.have.status(200));", "if (pm.response.code === 200 && pm.response.json().data?.id) { pm.collectionVariables.set('documentId', pm.response.json().data.id); } else { pm.collectionVariables.unset('documentId'); pm.execution.setNextRequest(null); }"] } }]
+    },
+    {
+      "name": "11. Generate Gemini Drafts",
+      "request": {
+        "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"count\": 2,\n  \"topic\": \"Lập trình hướng đối tượng Java\",\n  \"bloomLevels\": [\"UNDERSTAND\", \"APPLY\"],\n  \"rubricId\": \"{{rubricId}}\",\n  \"documentIds\": [\"{{documentId}}\"]\n}" },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/questions/generate"
+      }
+    }
+  ]
+}

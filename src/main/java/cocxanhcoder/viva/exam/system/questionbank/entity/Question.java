@@ -12,6 +12,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,6 +23,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "questions")
@@ -60,6 +64,11 @@ public class Question {
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private QuestionStatus status = QuestionStatus.DRAFT;
+
+    @ManyToMany
+    @JoinTable(name = "question_source_documents", joinColumns = @JoinColumn(name = "question_id"),
+            inverseJoinColumns = @JoinColumn(name = "document_id"))
+    private Set<cocxanhcoder.viva.exam.system.academic.entity.Document> sourceDocuments = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

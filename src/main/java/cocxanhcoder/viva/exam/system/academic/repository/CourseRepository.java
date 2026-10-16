@@ -39,6 +39,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
      */
     List<Course> findByLecturers_IdOrderByCourseCodeAsc(UUID lecturerId);
 
+    boolean existsByLecturers_IdAndId(UUID lecturerId, UUID courseId);
+
     /** Giảng viên này còn đang được phân công môn nào không? */
     boolean existsByLecturers_Id(UUID lecturerId);
 

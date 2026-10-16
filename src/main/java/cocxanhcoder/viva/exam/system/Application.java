@@ -9,12 +9,12 @@ public class Application {
 
     public static void main(String[] args) {
         // Tự động nạp file .env từ thư mục gốc dự án (nếu tồn tại)
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-        dotenv.entries().forEach(entry -> {
-            if (System.getProperty(entry.getKey()) == null) {
-                System.setProperty(entry.getKey(), entry.getValue());
-            }
-        });
+//        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+//        dotenv.entries().forEach(entry -> {
+//            if (System.getProperty(entry.getKey()) == null) {
+//                System.setProperty(entry.getKey(), entry.getValue());
+//            }
+//        });
 
         SpringApplication.run(Application.class, args);
     }

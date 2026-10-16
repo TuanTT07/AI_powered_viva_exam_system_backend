@@ -9,7 +9,6 @@ import java.util.UUID;
 public record QuestionRequest(
         @NotNull UUID courseId,
         UUID rubricId,
-        @NotNull UUID createdById,
         @NotBlank String content,
         @NotNull BloomLevel bloomLevel,
         boolean aiGenerated
