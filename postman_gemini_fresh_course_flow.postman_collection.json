@@ -1,0 +1,169 @@
+{
+  "info": {
+    "name": "AIVES - Gemini fresh course A-Z",
+    "description": "Luồng test course mới sau khi đổi GEMINI_API_KEY. Trước khi chạy: khởi động lại Spring Boot, điền adminEmail/adminPassword trong Variables; ở bước 07 chọn thủ công file PDF/DOCX/PPTX trong Body > form-data > file (kiểu File). Chạy theo thứ tự 00-11. Nếu upload trả indexingStatus khác READY thì dừng, không gọi Generate. Không chia sẻ collection đã điền mật khẩu/token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminEmail", "value": "" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "runId", "value": "" },
+    { "key": "lecturerEmail", "value": "" },
+    { "key": "lecturerPassword", "value": "Lecturer123!" },
+    { "key": "lecturerId", "value": "" },
+    { "key": "lecturerToken", "value": "" },
+    { "key": "courseId", "value": "" },
+    { "key": "rubricId", "value": "" },
+    { "key": "documentId", "value": "" },
+    { "key": "generatedQuestionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00. Admin login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Admin login: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "if (pm.response.code === 200) { var data = pm.response.json().data; pm.collectionVariables.set('adminToken', data.accessToken); } else { pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "01. Create lecturer",
+      "event": [
+        { "listen": "prerequest", "script": { "exec": [
+          "pm.collectionVariables.set('runId', Date.now().toString());",
+          "pm.collectionVariables.set('lecturerEmail', 'lecturer.' + pm.collectionVariables.get('runId') + '@aives.local');"
+        ] } },
+        { "listen": "test", "script": { "exec": [
+          "pm.test('Create lecturer: HTTP 201', function () { pm.response.to.have.status(201); });",
+          "if (pm.response.code === 201) { pm.collectionVariables.set('lecturerId', pm.response.json().data.id); } else { pm.execution.setNextRequest(null); }"
+        ] } }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"userCode\": \"LECT{{runId}}\",\n  \"fullName\": \"Giảng viên Gemini Test\",\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerPassword}}\",\n  \"roleName\": \"LECTURER\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/admin/users"
+      }
+    },
+    {
+      "name": "02. Create NEW course",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"courseCode\": \"JAVA{{runId}}\",\n  \"courseName\": \"Lập trình hướng đối tượng Java - Gemini Test\",\n  \"department\": \"Software Engineering\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/admin/courses"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Create course: HTTP 201', function () { pm.response.to.have.status(201); });",
+        "if (pm.response.code === 201) { pm.collectionVariables.set('courseId', pm.response.json().data.id); } else { pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "03. Assign lecturer to course",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/courses/{{courseId}}/lecturers/{{lecturerId}}" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Assign lecturer: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "if (pm.response.code !== 200) pm.execution.setNextRequest(null);"
+      ] } }]
+    },
+    {
+      "name": "04. Lecturer login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Lecturer login: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "if (pm.response.code === 200) { pm.collectionVariables.set('lecturerToken', pm.response.json().data.accessToken); } else { pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "05. Create course rubric",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"rubricName\": \"Rubric vấn đáp Java\",\n  \"description\": \"Đánh giá kiến thức và giải thích\",\n  \"criteria\": [\n    { \"criterionName\": \"Kiến thức\", \"description\": \"Trả lời đúng\", \"maxScore\": 6 },\n    { \"criterionName\": \"Giải thích\", \"description\": \"Lập luận rõ ràng\", \"maxScore\": 4 }\n  ]\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/rubrics"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Create rubric: HTTP 201', function () { pm.response.to.have.status(201); });",
+        "if (pm.response.code === 201) { pm.collectionVariables.set('rubricId', pm.response.json().data.id); } else { pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "06. List course documents before upload",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/courses/{{courseId}}/documents" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('List documents: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "if (pm.response.code !== 200) pm.execution.setNextRequest(null);"
+      ] } }]
+    },
+    {
+      "name": "07. Upload source document - ATTACH FILE MANUALLY",
+      "description": "Mở Body > form-data > dòng file, đổi kiểu thành File nếu cần, bấm Select Files chọn PDF/DOCX/PPTX. Không đặt Content-Type thủ công. Postman collection JSON không mang theo file trên máy. Sau khi upload, PHẢI kiểm tra data.indexingStatus = READY, vì API hiện có thể trả HTTP 200 dù index FAILED.",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+        "body": { "mode": "formdata", "formdata": [
+          { "key": "title", "value": "Tài liệu Java", "type": "text" },
+          { "key": "file", "type": "file" }
+        ] },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/documents"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Upload: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "var data = pm.response.code === 200 ? pm.response.json().data : null;",
+        "pm.test('Document indexingStatus phải READY', function () { pm.expect(data && data.indexingStatus).to.eql('READY'); });",
+        "if (data && data.indexingStatus === 'READY') { pm.collectionVariables.set('documentId', data.id); } else { pm.collectionVariables.unset('documentId'); pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "08. Verify document READY",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/courses/{{courseId}}/documents" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Document in list is READY', function () { pm.response.to.have.status(200); var docs = pm.response.json().data; var doc = docs.find(function (x) { return x.id === pm.collectionVariables.get('documentId'); }); pm.expect(doc).to.exist; pm.expect(doc.indexingStatus).to.eql('READY'); });",
+        "if (pm.response.code !== 200) pm.execution.setNextRequest(null);"
+      ] } }]
+    },
+    {
+      "name": "09. Generate ONE Gemini draft",
+      "description": "Gọi Gemini thật; có thể mất thời gian hoặc trả lỗi provider. Nếu 504 có interaction ID, tra GET /v1beta/interactions/{id} bằng cùng key trước khi gửi lại. Không chia sẻ API key.",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"count\": 1,\n  \"topic\": \"Lập trình hướng đối tượng Java\",\n  \"bloomLevels\": [\"UNDERSTAND\"],\n  \"rubricId\": \"{{rubricId}}\",\n  \"documentIds\": [\"{{documentId}}\"]\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/courses/{{courseId}}/questions/generate"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Generate: HTTP 200', function () { pm.response.to.have.status(200); });",
+        "var questions = pm.response.code === 200 ? pm.response.json().data : null;",
+        "pm.test('Có đúng 1 câu hỏi AI ở DRAFT', function () { pm.expect(questions).to.be.an('array').with.lengthOf(1); pm.expect(questions[0].status).to.eql('DRAFT'); pm.expect(questions[0].aiGenerated).to.eql(true); });",
+        "if (questions && questions.length === 1 && questions[0].status === 'DRAFT') { pm.collectionVariables.set('generatedQuestionId', questions[0].id); } else { pm.collectionVariables.unset('generatedQuestionId'); pm.execution.setNextRequest(null); }"
+      ] } }]
+    },
+    {
+      "name": "10. List DRAFT questions",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/questions?courseId={{courseId}}&status=DRAFT&page=0&size=20" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('List DRAFT: HTTP 200', function () { pm.response.to.have.status(200); });"
+      ] } }]
+    },
+    {
+      "name": "11. Approve generated question",
+      "description": "Chỉ chạy sau khi giảng viên kiểm tra nội dung câu hỏi AI. Nếu muốn giữ bản nháp, bỏ qua bước này.",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }], "url": "{{baseUrl}}/api/questions/{{generatedQuestionId}}/approve" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Approve: HTTP 200, status APPROVED', function () { pm.response.to.have.status(200); pm.expect(pm.response.json().data.status).to.eql('APPROVED'); });"
+      ] } }]
+    }
+  ]
+}
