@@ -14,6 +14,7 @@ import cocxanhcoder.viva.exam.system.academic.repository.UserRepository;
 import cocxanhcoder.viva.exam.system.common.dto.PageResponse;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
+import cocxanhcoder.viva.exam.system.common.mail.MailService;
 import cocxanhcoder.viva.exam.system.common.util.SearchUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -40,16 +41,19 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final CourseRepository courseRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MailService mailService;
 
     // Constructor injection: Spring tự truyền các bean vào (không dùng @Autowired trên field)
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        CourseRepository courseRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       MailService mailService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.courseRepository = courseRepository;
         this.passwordEncoder = passwordEncoder;
+        this.mailService = mailService;
     }
 
     // ===================== ĐỌC =====================
@@ -95,9 +99,15 @@ public class UserService {
         user.setEmail(email);
         user.setRole(findRole(request.roleName()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setMustChangePassword(true); // bắt đổi mật khẩu ở lần đăng nhập đầu tiên
 
         // 3. saveAndFlush: ghi xuống DB ngay để createdAt/updatedAt được điền trước khi trả về
-        return UserMapper.toResponse(userRepository.saveAndFlush(user));
+        UserResponse response = UserMapper.toResponse(userRepository.saveAndFlush(user));
+
+        // 4. Gửi tài khoản + mật khẩu về email của user vừa tạo (mật khẩu gốc chỉ có ở đây, DB chỉ lưu hash)
+        sendAccountCredentialsEmail(email, request.fullName().trim(), userCode, request.password());
+
+        return response;
     }
 
     @Transactional
@@ -131,7 +141,10 @@ public class UserService {
     public void resetPassword(UUID id, ResetPasswordRequest request) {
         User user = findUser(id);
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setMustChangePassword(true); // mật khẩu do Admin đặt -> bắt đổi lại ở lần đăng nhập kế tiếp
         // Không cần gọi save: dirty checking tự UPDATE khi transaction commit
+
+        sendAccountCredentialsEmail(user.getEmail(), user.getFullName(), user.getUserCode(), request.newPassword());
     }
 
     @Transactional
@@ -162,5 +175,26 @@ public class UserService {
     /** Email không phân biệt hoa thường -> luôn lưu chữ thường để so sánh trùng cho đúng. */
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase();
+    }
+
+    /** Gửi mã người dùng + mật khẩu (dạng chưa mã hoá) về email, kèm yêu cầu đổi mật khẩu lần đầu đăng nhập. */
+    private void sendAccountCredentialsEmail(String email, String fullName, String userCode, String rawPassword) {
+        String subject = "AIVES - Thông tin tài khoản của bạn";
+        String body = """
+                Xin chào %s,
+
+                Tài khoản AIVES của bạn đã được tạo/cập nhật với thông tin đăng nhập như sau:
+                - Mã người dùng: %s
+                - Email đăng nhập: %s
+                - Mật khẩu: %s
+
+                Vì lý do an toàn, hệ thống sẽ yêu cầu bạn đổi mật khẩu ngay sau khi đăng nhập lần đầu tiên.
+                Vui lòng không chia sẻ mật khẩu này cho người khác.
+
+                Trân trọng,
+                AIVES
+                """.formatted(fullName, userCode, email, rawPassword);
+
+        mailService.send(email, subject, body);
     }
 }
