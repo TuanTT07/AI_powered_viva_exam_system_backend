@@ -71,6 +71,7 @@ public class AdminInitializer implements ApplicationRunner {
         admin.setFullName(fullName.trim());
         admin.setEmail(email.trim().toLowerCase());
         admin.setPasswordHash(passwordEncoder.encode(password));
+        admin.setMustChangePassword(false); // mật khẩu do chính Admin chọn qua ADMIN_PASSWORD, không phải mật khẩu tạm
         userRepository.save(admin);
 
         log.info("Đã tạo tài khoản ADMIN đầu tiên: {}", admin.getEmail());

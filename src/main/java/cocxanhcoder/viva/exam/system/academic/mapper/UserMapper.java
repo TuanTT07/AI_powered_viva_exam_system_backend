@@ -24,6 +24,7 @@ public final class UserMapper {
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole().getRoleName(),
+                user.isMustChangePassword(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

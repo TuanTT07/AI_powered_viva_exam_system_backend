@@ -45,6 +45,10 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    // true = tài khoản đang dùng mật khẩu do Admin đặt (lúc tạo mới / reset) -> phải đổi ở lần đăng nhập đầu tiên
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
