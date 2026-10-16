@@ -13,6 +13,8 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - aives-pgdata:/var/lib/postgresql/data
+      - aives-uploads:/app/uploads
 
 volumes:
   aives-pgdata:
+  aives-uploads:

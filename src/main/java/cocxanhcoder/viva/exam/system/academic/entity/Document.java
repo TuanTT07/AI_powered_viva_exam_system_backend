@@ -39,6 +39,25 @@ public class Document {
     @Column(name = "file_url", nullable = false, length = 500)
     private String fileUrl;
 
+    @Column(name = "original_filename", length = 500)
+    private String originalFilename;
+    @Column(name = "stored_filename", length = 500)
+    private String storedFilename;
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+    @Column(name = "file_size")
+    private Long fileSize;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by")
+    private cocxanhcoder.viva.exam.system.academic.entity.User uploadedBy;
+    @Column(name = "openai_file_id", length = 255)
+    private String openAiFileId;
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "indexing_status", length = 30, nullable = false)
+    private DocumentIndexStatus indexingStatus = DocumentIndexStatus.PENDING;
+    @Column(name = "indexing_error", columnDefinition = "TEXT")
+    private String indexingError;
+
     // Text bóc tách từ file, AI dùng để sinh câu hỏi / làm ngữ cảnh khi hỏi đáp
     @Column(name = "content_extracted", columnDefinition = "TEXT")
     private String contentExtracted;

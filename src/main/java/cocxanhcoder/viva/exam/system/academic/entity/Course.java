@@ -38,6 +38,9 @@ public class Course {
 
     private String department;
 
+    @Column(name = "openai_vector_store_id", length = 255)
+    private String openAiVectorStoreId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

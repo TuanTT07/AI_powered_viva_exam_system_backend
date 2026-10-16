@@ -47,7 +47,13 @@ springdoc:
 # Cấu hình riêng của AIVES
 app:
   ai:
-    api-key: ${AI_API_KEY:}
+    provider: ${AI_PROVIDER:gemini}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:}
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-model: ${OPENAI_MODEL:}
+    upload-dir: ${APP_UPLOAD_DIR:uploads}
+    max-upload-bytes: ${APP_MAX_UPLOAD_BYTES:26214400}
   jwt:
     # Khoá ký token, tối thiểu 32 ký tự. Giá trị mặc định CHỈ dùng khi dev local, deploy thật phải set JWT_SECRET.
     secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-characters}

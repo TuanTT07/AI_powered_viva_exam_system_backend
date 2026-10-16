@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record RubricResponse(
         UUID id,
+        UUID courseId,
         String rubricName,
         String description,
         List<RubricCriterionResponse> criteria,

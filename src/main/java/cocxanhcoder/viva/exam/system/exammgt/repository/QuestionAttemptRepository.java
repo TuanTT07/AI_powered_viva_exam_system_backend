@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface QuestionAttemptRepository extends JpaRepository<QuestionAttempt, UUID> {
 
     List<QuestionAttempt> findByExamAttemptIdOrderByQuestionOrderAsc(UUID examAttemptId);
+
+    boolean existsByQuestionId(UUID questionId);
 }
