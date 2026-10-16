@@ -46,6 +46,7 @@ public class JwtService {
                 .claim("role", user.getRole().getRoleName())
                 .claim("email", user.getEmail())
                 .claim("name", user.getFullName())
+                .claim("mustChangePassword", user.isMustChangePassword())
                 .build();
 
         // Phải chỉ rõ HS256 vì mặc định encoder dùng RS256 (khoá công khai/bí mật)

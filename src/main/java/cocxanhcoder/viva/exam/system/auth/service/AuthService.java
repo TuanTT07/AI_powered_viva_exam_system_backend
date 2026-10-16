@@ -3,13 +3,17 @@ package cocxanhcoder.viva.exam.system.auth.service;
 import cocxanhcoder.viva.exam.system.academic.entity.User;
 import cocxanhcoder.viva.exam.system.academic.mapper.UserMapper;
 import cocxanhcoder.viva.exam.system.academic.repository.UserRepository;
+import cocxanhcoder.viva.exam.system.auth.dto.ChangePasswordRequest;
 import cocxanhcoder.viva.exam.system.auth.dto.LoginRequest;
 import cocxanhcoder.viva.exam.system.auth.dto.LoginResponse;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
+import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 /** Nghiệp vụ đăng nhập. */
 @Service
@@ -46,5 +50,20 @@ public class AuthService {
                 jwtService.getExpirationSeconds(),
                 UserMapper.toResponse(user)
         );
+    }
+
+    /** User tự đổi mật khẩu (bắt buộc nếu mustChangePassword = true, nhưng dùng được mọi lúc). */
+    @Transactional
+    public void changePassword(UUID userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Mật khẩu hiện tại không đúng");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
+        // Không cần gọi save: dirty checking tự UPDATE khi transaction commit
     }
 }
