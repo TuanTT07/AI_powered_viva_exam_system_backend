@@ -77,7 +77,7 @@ public class RubricService {
         Rubric rubric = findEntity(id);
         requireCourse(rubric, courseId);
         if (questionRepository.countByRubricId(id) > 0) {
-            throw new BusinessException(HttpStatus.CONFLICT,"Cannot delete a rubric that is assigned to questions" );
+            throw new BusinessException(HttpStatus.CONFLICT, "Không thể xoá rubric đang được gắn cho câu hỏi");
         }
         rubricRepository.delete(rubric);
     }

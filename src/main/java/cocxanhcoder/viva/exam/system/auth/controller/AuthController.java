@@ -2,6 +2,7 @@ package cocxanhcoder.viva.exam.system.auth.controller;
 
 import cocxanhcoder.viva.exam.system.academic.dto.UserResponse;
 import cocxanhcoder.viva.exam.system.academic.service.UserService;
+import cocxanhcoder.viva.exam.system.auth.dto.ChangePasswordRequest;
 import cocxanhcoder.viva.exam.system.auth.dto.LoginRequest;
 import cocxanhcoder.viva.exam.system.auth.dto.LoginResponse;
 import cocxanhcoder.viva.exam.system.auth.service.AuthService;
@@ -55,5 +56,19 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> me(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return ApiResponse.ok("Lấy thông tin tài khoản thành công", userService.getUser(userId));
+    }
+
+    /**
+     * Đổi mật khẩu của chính mình. Bắt buộc gọi API này nếu đang bị must_change_password = true
+     * (token cũ phát hành trước khi đổi vẫn còn hạn nhưng mọi API khác sẽ bị chặn 428,
+     * xem MustChangePasswordFilter) - FE cần đăng nhập lại để lấy token mới sau khi đổi.
+     */
+    @PostMapping("/change-password")
+    @Operation(summary = "Đổi mật khẩu của chính mình (bắt buộc ở lần đăng nhập đầu tiên)")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@AuthenticationPrincipal Jwt jwt,
+                                                             @Valid @RequestBody ChangePasswordRequest request) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        authService.changePassword(userId, request);
+        return ApiResponse.ok("Đổi mật khẩu thành công");
     }
 }

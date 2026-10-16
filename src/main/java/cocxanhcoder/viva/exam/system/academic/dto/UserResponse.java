@@ -13,6 +13,7 @@ public record UserResponse(
         String fullName,
         String email,
         String roleName,
+        boolean mustChangePassword,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

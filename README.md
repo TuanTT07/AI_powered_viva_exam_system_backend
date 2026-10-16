@@ -1,3 +1,4 @@
+https://aives-backend-xxhi.onrender.com
 # AIVES – AI-powered Viva Exam System (Backend)
 
 Hệ thống Thi Vấn đáp Thông minh hỗ trợ Giảng viên tổ chức, điều phối ca thi, tự động chọn câu hỏi thích ứng theo thang Bloom và chống trùng lặp, bóc băng giọng nói thời gian thực và chấm điểm gợi ý theo Rubric.
