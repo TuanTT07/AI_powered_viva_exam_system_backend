@@ -2,6 +2,7 @@ package cocxanhcoder.viva.exam.system.common.config;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -49,7 +51,8 @@ public class SecurityConfig {
     };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                    MustChangePasswordFilter mustChangePasswordFilter) throws Exception {
         http
                 // REST API dùng token, không dùng cookie/session -> tắt CSRF và không tạo session
                 .csrf(AbstractHttpConfigurer::disable)
@@ -70,7 +73,9 @@ public class SecurityConfig {
                                         "Chưa đăng nhập hoặc token không hợp lệ / đã hết hạn")))
                 // 403: đã đăng nhập nhưng không đủ quyền (vd: LECTURER gọi /api/admin/**)
                 .exceptionHandling(ex -> ex.accessDeniedHandler((request, response, e) ->
-                        writeJson(response, HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền truy cập chức năng này")));
+                        writeJson(response, HttpServletResponse.SC_FORBIDDEN, "Bạn không có quyền truy cập chức năng này")))
+                // Chạy sau khi JWT đã xác thực xong -> chặn tài khoản đang phải đổi mật khẩu (xem MustChangePasswordFilter)
+                .addFilterAfter(mustChangePasswordFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 
@@ -110,6 +115,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * MustChangePasswordFilter là 1 bean -> Spring Boot sẽ TỰ ĐỘNG đăng ký nó thành servlet filter
+     * cho mọi URL (chạy trước cả Spring Security). Tắt đăng ký tự động đó đi vì filter này chỉ nên
+     * chạy ở đúng 1 vị trí trong security filter chain (đã addFilterAfter ở trên).
+     */
+    @Bean
+    public FilterRegistrationBean<MustChangePasswordFilter> disableAutoRegistration(
+            MustChangePasswordFilter filter) {
+        FilterRegistrationBean<MustChangePasswordFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     /**
