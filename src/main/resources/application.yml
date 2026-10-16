@@ -33,6 +33,19 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
+  # Gửi email bằng Gmail SMTP: gửi tài khoản + mật khẩu khi Admin tạo / reset tài khoản
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 server:
   # Render (và hầu hết cloud) tự cấp port qua biến PORT; chạy local thì dùng SERVER_PORT / 8080
   port: ${PORT:${SERVER_PORT:8080}}
@@ -48,6 +61,9 @@ springdoc:
 app:
   ai:
     api-key: ${AI_API_KEY:}
+  mail:
+    # Địa chỉ hiển thị ở "From" - mặc định dùng chính MAIL_USERNAME (tài khoản Gmail dùng để gửi)
+    from: ${MAIL_FROM:${MAIL_USERNAME:}}
   jwt:
     # Khoá ký token, tối thiểu 32 ký tự. Giá trị mặc định CHỈ dùng khi dev local, deploy thật phải set JWT_SECRET.
     secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-characters}
