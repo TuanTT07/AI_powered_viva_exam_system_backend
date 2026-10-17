@@ -3,18 +3,22 @@ package cocxanhcoder.viva.exam.system.questionbank.service;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,14 +31,36 @@ import java.util.Map;
 @ConditionalOnProperty(name = "app.ai.provider", havingValue = "openai")
 public class OpenAiAiClient implements AiClient {
     private final String key, model;
+    private final int maxOutputTokens;
+    private final int timeoutSeconds;
     private final RestClient client;
     private final ObjectMapper mapper;
 
-    public OpenAiAiClient(@Value("${app.ai.openai-api-key}") String key, @Value("${app.ai.openai-model}") String model) {
+    @Autowired
+    public OpenAiAiClient(@Value("${app.ai.openai-api-key}") String key,
+                          @Value("${app.ai.openai-model}") String model,
+                          @Value("${app.ai.timeout-seconds}") int timeoutSeconds,
+                          @Value("${app.ai.max-output-tokens}") int maxOutputTokens) {
+        this(key, model, timeoutSeconds, maxOutputTokens, configuredClient(timeoutSeconds));
+    }
+
+    OpenAiAiClient(String key, String model, int timeoutSeconds, int maxOutputTokens, RestClient client) {
+        if (timeoutSeconds < 1 || maxOutputTokens < 16)
+            throw new IllegalArgumentException("AI_TIMEOUT_SECONDS phải >= 1 và AI_MAX_OUTPUT_TOKENS phải >= 16");
         this.key = key;
         this.model = model;
+        this.timeoutSeconds = timeoutSeconds;
+        this.maxOutputTokens = maxOutputTokens;
         this.mapper = new ObjectMapper();
-        this.client = RestClient.builder().baseUrl("https://api.openai.com/v1").build();
+        this.client = client;
+    }
+
+    private static RestClient configuredClient(int timeoutSeconds) {
+        var requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(Math.min(5, timeoutSeconds)));
+        requestFactory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
+        return RestClient.builder().baseUrl("https://api.openai.com/v1")
+                .requestFactory(requestFactory).build();
     }
 
     public String createVectorStore(String courseCode) {
@@ -44,7 +70,7 @@ public class OpenAiAiClient implements AiClient {
     public String uploadFile(Path file, String filename) {
         requireConfig();
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("purpose", "user_data");
+        body.add("purpose", "assistants");
         body.add("file", new FileSystemResource(file));
         try {
             return parse(client.post().uri("/files").header(HttpHeaders.AUTHORIZATION, "Bearer " + key).contentType(MediaType.MULTIPART_FORM_DATA).body(body).retrieve().body(String.class), "id").asText();
@@ -54,7 +80,23 @@ public class OpenAiAiClient implements AiClient {
     }
 
     public void addFileToVectorStore(String vectorStoreId, String fileId) {
-        request("/vector_stores/" + vectorStoreId + "/files", Map.of("file_id", fileId), "id");
+        String path = "/vector_stores/" + vectorStoreId + "/files";
+        JsonNode status = request(path, Map.of("file_id", fileId), null);
+        Instant deadline = Instant.now().plusSeconds(timeoutSeconds);
+        while ("in_progress".equals(status.path("status").asText())) {
+            if (!Instant.now().isBefore(deadline))
+                throw new BusinessException(HttpStatus.GATEWAY_TIMEOUT, "OpenAI chưa lập chỉ mục xong tài liệu");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "Lập chỉ mục OpenAI bị gián đoạn");
+            }
+            status = get(path + "/" + fileId);
+        }
+        if (!"completed".equals(status.path("status").asText()))
+            throw new BusinessException(HttpStatus.BAD_GATEWAY,
+                    "OpenAI lập chỉ mục tài liệu thất bại (" + status.path("status").asText("unknown") + ")");
     }
 
     public void deleteFile(String fileId) {
@@ -71,10 +113,14 @@ public class OpenAiAiClient implements AiClient {
         String instructions = "You generate Vietnamese oral-exam question drafts. Return ONLY valid JSON object: {\"questions\":[{\"content\":string,\"bloomLevel\":one of REMEMBER,UNDERSTAND,APPLY,ANALYZE,EVALUATE,CREATE}]}. Use the supplied course files only. Create exactly " + count + " questions.";
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", model);
+        payload.put("max_output_tokens", maxOutputTokens);
         payload.put("instructions", instructions);
         payload.put("input", "Topic: " + (topic == null ? "cover the indexed course material" : topic) + ". Allowed Bloom levels: " + String.join(",", blooms));
         payload.put("tools", List.of(Map.of("type", "file_search", "vector_store_ids", List.of(vectorStoreId))));
         JsonNode response = request("/responses", payload, null);
+        if ("incomplete".equals(response.path("status").asText()))
+            throw new BusinessException(HttpStatus.BAD_GATEWAY,
+                    "OpenAI dừng trước khi tạo đủ câu hỏi (" + response.path("incomplete_details").path("reason").asText("unknown") + ")");
         String output = extractOutputText(response);
         try {
             JsonNode questions = mapper.readTree(output).path("questions");
@@ -95,6 +141,16 @@ public class OpenAiAiClient implements AiClient {
         try {
             String raw = client.post().uri(uri).header(HttpHeaders.AUTHORIZATION, "Bearer " + key).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(String.class);
             return parse(raw, field);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            throw providerError(ex);
+        }
+    }
+
+    private JsonNode get(String uri) {
+        requireConfig();
+        try {
+            return parse(client.get().uri(uri).header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
+                    .retrieve().body(String.class), null);
         } catch (org.springframework.web.client.RestClientException ex) {
             throw providerError(ex);
         }
