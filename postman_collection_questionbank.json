@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "AIVES – Full Question Bank Flow",
-    "description": "Chạy các request theo thứ tự số. Điền adminEmail/adminPassword trước khi chạy. Các test script tự lưu token và ID.",
+    "description": "Chạy các request theo thứ tự số. Điền adminEmail/adminPassword trước khi chạy. Luồng demo tự tạo lecturer, đổi mật khẩu lần đầu và đăng nhập lại; không cần email thật. Các test script tự lưu token và ID.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,6 +11,7 @@
     { "key": "adminToken", "value": "" },
     { "key": "lecturerEmail", "value": "" },
     { "key": "lecturerPassword", "value": "Lecturer123" },
+    { "key": "lecturerNewPassword", "value": "" },
     { "key": "lecturerId", "value": "" },
     { "key": "lecturerToken", "value": "" },
     { "key": "courseId", "value": "" },
@@ -32,7 +33,7 @@
     {
       "name": "01. Create Lecturer",
       "event": [
-        { "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('lecturerEmail', 'lecturer.' + Date.now() + '@aives.local');"] } },
+        { "listen": "prerequest", "script": { "exec": ["const stamp = Date.now();", "pm.collectionVariables.set('lecturerEmail', 'lecturer.' + stamp + '@aives.local');", "pm.collectionVariables.set('lecturerNewPassword', 'LecturerNew' + stamp + '!');"] } },
         { "listen": "test", "script": { "exec": ["pm.test('Tạo lecturer thành công', () => pm.response.to.have.status(201));", "if (pm.response.code === 201) { pm.collectionVariables.set('lecturerId', pm.response.json().data.id); } else { pm.execution.setNextRequest(null); }"] } }
       ],
       "request": {
@@ -64,7 +65,29 @@
         "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerPassword}}\"\n}" },
         "url": "{{baseUrl}}/api/auth/login"
       },
-      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login lecturer thành công', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('lecturerToken', pm.response.json().data.accessToken);"] } }]
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login lecturer thành công và cần đổi mật khẩu', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.user.mustChangePassword).to.eql(true); });", "if (pm.response.code === 200) { pm.collectionVariables.set('lecturerToken', pm.response.json().data.accessToken); } else { pm.execution.setNextRequest(null); }"] } }]
+    },
+    {
+      "name": "04a. Lecturer Changes Initial Password",
+      "description": "Tài khoản do Admin tạo phải đổi mật khẩu lần đầu; JWT hiện tại chỉ được phép gọi endpoint này và /api/auth/me.",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"{{lecturerPassword}}\",\n  \"newPassword\": \"{{lecturerNewPassword}}\"\n}" },
+        "url": "{{baseUrl}}/api/auth/change-password"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Đổi mật khẩu lần đầu thành công', () => pm.response.to.have.status(200));", "if (pm.response.code !== 200) pm.execution.setNextRequest(null);"] } }]
+    },
+    {
+      "name": "04b. Login as Lecturer Again",
+      "description": "Đăng nhập lại để lấy JWT mới có mustChangePassword=false; token cũ vẫn bị chặn 428.",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{lecturerNewPassword}}\"\n}" },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Token lecturer mới dùng được', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.user.mustChangePassword).to.eql(false); });", "if (pm.response.code === 200) { pm.collectionVariables.set('lecturerToken', pm.response.json().data.accessToken); } else { pm.execution.setNextRequest(null); }"] } }]
     },
     {
       "name": "05. Lecturer Creates Rubric",

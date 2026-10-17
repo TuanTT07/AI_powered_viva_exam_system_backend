@@ -1,6 +1,5 @@
-# PostgreSQL cho môi trường dev.
-# Chạy:  docker compose up -d      Dừng:  docker compose down
-# Giá trị ${...} lấy từ file .env cùng thư mục; phần sau ":-" là giá trị mặc định nếu .env không có.
+# Chạy toàn bộ backend local: docker compose up -d --build
+# Biến ${...} lấy từ .env; Spring nhận thêm các biến còn lại qua env_file.
 services:
   postgres:
     image: postgres:17
@@ -13,7 +12,38 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - aives-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  spring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Trong container, localhost là chính container; luôn nối DB của Compose.
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-aives}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-aives}
+      DB_USERNAME: ${DB_USERNAME:-aives}
+      DB_PASSWORD: ${DB_PASSWORD:-aives}
+      PORT: 8080
+      SERVER_PORT: 8080
+      APP_UPLOAD_DIR: /app/uploads
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
       - aives-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   aives-pgdata:
