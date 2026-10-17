@@ -60,11 +60,15 @@ springdoc:
 # Cấu hình riêng của AIVES
 app:
   ai:
-    provider: ${AI_PROVIDER:gemini}
+    provider: ${AI_PROVIDER:openai}
     gemini-api-key: ${GEMINI_API_KEY:}
     gemini-model: ${GEMINI_MODEL:}
     openai-api-key: ${OPENAI_API_KEY:}
     openai-model: ${OPENAI_MODEL:}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:700}
+    # Dự phòng cho chức năng giải thích; hiện chưa có service sử dụng.
+    explain-limit-per-user: ${AI_EXPLAIN_LIMIT_PER_USER:10}
     upload-dir: ${APP_UPLOAD_DIR:uploads}
     max-upload-bytes: ${APP_MAX_UPLOAD_BYTES:26214400}
     api-key: ${AI_API_KEY:}
