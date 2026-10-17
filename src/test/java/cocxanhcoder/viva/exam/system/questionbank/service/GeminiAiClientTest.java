@@ -1,14 +1,19 @@
 package cocxanhcoder.viva.exam.system.questionbank.service;
 
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -24,13 +29,14 @@ class GeminiAiClientTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo(URL)).andExpect(jsonPath("$.tools[0].type").value("file_search"))
+                .andExpect(jsonPath("$.input").value(containsString("'Lập trình hướng đối tượng Java' (Java object-oriented programming / OOP)")))
                 .andRespond(withSuccess("{\"status\":\"completed\",\"output_text\":\"Java có tính đóng gói.\"}", MediaType.APPLICATION_OCTET_STREAM));
         server.expect(requestTo(URL)).andExpect(jsonPath("$.tools").doesNotExist()).andRespond(withSuccess(
                 "{\"output_text\":\"{\\\"questions\\\":[{\\\"content\\\":\\\"Tính đóng gói trong Java hoạt động như thế nào?\\\",\\\"bloomLevel\\\":\\\"UNDERSTAND\\\"}]}\"}",
                 MediaType.APPLICATION_OCTET_STREAM));
 
         var questions = new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
-                .generateQuestions("fileSearchStores/test", null, 1, List.of("UNDERSTAND"));
+                .generateQuestions("fileSearchStores/test", "Lập trình hướng đối tượng Java", 1, List.of("UNDERSTAND"));
 
         assertEquals(1, questions.size());
         assertEquals("Tính đóng gói trong Java hoạt động như thế nào?", questions.getFirst().content());
@@ -110,9 +116,10 @@ class GeminiAiClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo(URL)).andRespond(withSuccess(
                 "{\"status\":\"completed\",\"output_text\":\"Java có tính đóng gói.\"}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo(URL)).andRespond(withSuccess(
-                "{\"status\":\"completed\",\"output_text\":\"{\\\"questions\\\":[{\\\"content\\\":\\\"Theo tài liệu, chủ đề ABC có thông tin gì?\\\",\\\"bloomLevel\\\":\\\"UNDERSTAND\\\"}]}\"}",
-                MediaType.APPLICATION_JSON));
+        for (int i = 0; i < 3; i++)
+            server.expect(requestTo(URL)).andRespond(withSuccess(
+                    "{\"status\":\"completed\",\"output_text\":\"{\\\"questions\\\":[{\\\"content\\\":\\\"Theo tài liệu, chủ đề ABC có thông tin gì?\\\",\\\"bloomLevel\\\":\\\"UNDERSTAND\\\"}]}\"}",
+                    MediaType.APPLICATION_JSON));
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
@@ -120,6 +127,43 @@ class GeminiAiClientTest {
 
         assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatus());
         server.verify();
+    }
+
+    @Test
+    void keepsValidQuestionsAndRequestsOnlyMissingOnes() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL)).andRespond(withSuccess(
+                "{\"status\":\"completed\",\"output_text\":\"Java OOP gồm đóng gói, kế thừa, đa hình và trừu tượng.\"}",
+                MediaType.APPLICATION_JSON));
+        server.expect(requestTo(URL)).andExpect(jsonPath("$.input").value(containsString("tạo đúng 5 câu hỏi")))
+                .andRespond(withSuccess(questionResponse(
+                        "Tính đóng gói trong Java bảo vệ dữ liệu ra sao?",
+                        "Hãy so sánh kế thừa và đa hình trong Java.",
+                        "Theo tài liệu, chủ đề này có thông tin gì?",
+                        "Tính đóng gói trong Java bảo vệ dữ liệu ra sao?", "Ngắn?"), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(URL)).andExpect(jsonPath("$.input").value(containsString("tạo đúng 2 câu hỏi")))
+                .andRespond(withSuccess(questionResponse(
+                        "Phân biệt lớp trừu tượng và interface trong Java.",
+                        "Giải thích cơ chế ghi đè phương thức trong Java."), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(URL)).andExpect(jsonPath("$.input").value(containsString("tạo đúng 1 câu hỏi")))
+                .andRespond(withSuccess(questionResponse(
+                        "Khi nào nên dùng composition thay vì inheritance trong Java?"), MediaType.APPLICATION_JSON));
+
+        var questions = new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
+                .generateQuestions("fileSearchStores/test", "Lập trình hướng đối tượng Java", 5,
+                        List.of("UNDERSTAND", "APPLY"));
+
+        assertEquals(5, questions.size());
+        assertEquals("Hãy so sánh kế thừa và đa hình trong Java.", questions.get(1).content());
+        server.verify();
+    }
+
+    private static String questionResponse(String... contents) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        List<Map<String, String>> questions = Arrays.stream(contents)
+                .map(content -> Map.of("content", content, "bloomLevel", "UNDERSTAND")).toList();
+        return mapper.writeValueAsString(Map.of("output_text", mapper.writeValueAsString(Map.of("questions", questions))));
     }
 
     @Test

@@ -27,10 +27,13 @@ Hệ thống Thi Vấn đáp Thông minh hỗ trợ Giảng viên tổ chức, �
 
 ## 💻 Hướng dẫn Khởi chạy & Kiểm thử
 
-### 1. Khởi chạy Database local
+### 1. Khởi chạy toàn bộ backend bằng Docker
 ```bash
-docker compose up -d
+docker compose up -d --build
+docker compose logs -f spring
 ```
+
+Compose chạy PostgreSQL và Spring Boot, mở API tại `http://localhost:8080` (hoặc `SERVER_PORT` trong `.env`). Cần tạo `.env` từ `.env.example` trước khi chạy. File upload được giữ trong Docker volume `aives-uploads`; database dùng volume `aives-pgdata`. Dừng bằng `docker compose down` (không thêm `-v` nếu muốn giữ dữ liệu). Compose luôn dùng PostgreSQL nội bộ, kể cả khi `.env` có `DB_URL` khác.
 
 ### 2. Biên dịch & Chạy Unit Tests
 ```bash
@@ -41,7 +44,7 @@ docker compose up -d
 ./mvnw test
 ```
 
-### 3. Chạy Server
+### 3. Chạy Server ngoài Docker (tuỳ chọn, không chạy đồng thời với service `spring`)
 ```bash
 .\mvnw.cmd spring-boot:run
 ```
