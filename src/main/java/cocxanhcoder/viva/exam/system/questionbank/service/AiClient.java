@@ -10,5 +10,9 @@ public interface AiClient {
     void addFileToVectorStore(String vectorStoreId, String fileId);
     void deleteFile(String fileId);
     List<GeneratedQuestion> generateQuestions(String vectorStoreId, String topic, int count, List<String> bloomLevels);
+    default List<GeneratedQuestion> generateQuestions(String vectorStoreId, String topic, int count,
+                                                      List<String> bloomLevels, String sourceContext) {
+        return generateQuestions(vectorStoreId, topic, count, bloomLevels);
+    }
     record GeneratedQuestion(String content, String bloomLevel) { }
 }

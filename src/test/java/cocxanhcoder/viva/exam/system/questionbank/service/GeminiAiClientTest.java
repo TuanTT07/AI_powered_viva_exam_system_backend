@@ -25,6 +25,24 @@ class GeminiAiClientTest {
     private static final String URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
     @Test
+    void missingTopicUsesSampledTextWithoutGenericFileSearch() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL)).andExpect(jsonPath("$.tools").doesNotExist())
+                .andExpect(jsonPath("$.input").value(containsString("Encapsulation keeps fields private")))
+                .andRespond(withSuccess(
+                        "{\"status\":\"completed\",\"output_text\":\"{\\\"questions\\\":[{\\\"content\\\":\\\"Giải thích cơ chế đóng gói dữ liệu trong Java?\\\",\\\"bloomLevel\\\":\\\"UNDERSTAND\\\"}]}\"}",
+                        MediaType.APPLICATION_JSON));
+
+        var result = new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
+                .generateQuestions("fileSearchStores/test", null, 1, List.of("UNDERSTAND"),
+                        "Nguồn: Java OOP\nEncapsulation keeps fields private and exposes controlled access.");
+
+        assertEquals(1, result.size());
+        server.verify();
+    }
+
+    @Test
     void readsJsonEvenWhenResponseIsOctetStream() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -111,6 +129,22 @@ class GeminiAiClientTest {
     }
 
     @Test
+    void stopsWhenFileSearchSaysNoDocumentsWereUploaded() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL)).andRespond(withSuccess(
+                "{\"status\":\"completed\",\"output_text\":\"Based on the available course files, there are no documents or text passages uploaded that describe the main course concepts. Please upload the relevant course materials.\"}",
+                MediaType.APPLICATION_JSON));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
+                        .generateQuestions("fileSearchStores/test", null, 5, List.of("UNDERSTAND")));
+
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, ex.getStatus());
+        server.verify();
+    }
+
+    @Test
     void rejectsQuestionsAboutDocumentStatus() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -124,6 +158,25 @@ class GeminiAiClientTest {
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
                         .generateQuestions("fileSearchStores/test", "ABC", 1, List.of("UNDERSTAND")));
+
+        assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatus());
+        server.verify();
+    }
+
+    @Test
+    void rejectsQuestionAboutMissingUploadedCourseFiles() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL)).andRespond(withSuccess(
+                "{\"status\":\"completed\",\"output_text\":\"Java OOP có tính đóng gói.\"}", MediaType.APPLICATION_JSON));
+        for (int i = 0; i < 3; i++)
+            server.expect(requestTo(URL)).andRespond(withSuccess(questionResponse(
+                    "Hãy giải thích tại sao hệ thống không tìm thấy tài liệu khóa học nào đã được tải lên."),
+                    MediaType.APPLICATION_JSON));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                new GeminiAiClient("test-key", "gemini-3.5-flash-lite", builder.build())
+                        .generateQuestions("fileSearchStores/test", null, 1, List.of("UNDERSTAND")));
 
         assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatus());
         server.verify();

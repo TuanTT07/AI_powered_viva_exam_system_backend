@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -16,6 +17,22 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class OpenAiAiClientTest {
+    @Test
+    void missingTopicUsesSampledTextWithoutFileSearch() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.openai.com/v1");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://api.openai.com/v1/responses"))
+                .andExpect(jsonPath("$.tools").doesNotExist())
+                .andExpect(jsonPath("$.input").value(containsString("Encapsulation keeps fields private")))
+                .andRespond(withSuccess("{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"{\\\"questions\\\":[{\\\"content\\\":\\\"Giải thích cơ chế đóng gói dữ liệu trong Java?\\\",\\\"bloomLevel\\\":\\\"UNDERSTAND\\\"}]}\"}]}]}", MediaType.APPLICATION_JSON));
+
+        var result = new OpenAiAiClient("test-key", "gpt-5.4-mini", 45, 700, builder.build())
+                .generateQuestions("vs_test", null, 1, List.of("UNDERSTAND"),
+                        "Nguồn: Java OOP\nEncapsulation keeps fields private and exposes controlled access.");
+
+        assertEquals(1, result.size());
+        server.verify();
+    }
     @Test
     void generatesWithConfiguredModelAndTokenLimit() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.openai.com/v1");
