@@ -52,7 +52,15 @@ public class QuestionGenerationService {
 
         List<BloomLevel> levels = request.bloomLevels() == null || request.bloomLevels().isEmpty() ? List.of(BloomLevel.UNDERSTAND) : request.bloomLevels();
 
-        List<AiClient.GeneratedQuestion> output = ai.generateQuestions(course.getOpenAiVectorStoreId(), request.topic(), request.count(), levels.stream().map(Enum::name).toList());
+        String sourceContext = null;
+        if (request.topic() == null || request.topic().isBlank()) {
+            sourceContext = DocumentExcerptSampler.sample(selected, request.count());
+            if (sourceContext.isBlank())
+                throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Tài liệu đã chọn chưa có văn bản trích xuất để sinh câu hỏi không theo chủ đề");
+        }
+        List<AiClient.GeneratedQuestion> output = ai.generateQuestions(course.getOpenAiVectorStoreId(),
+                request.topic(), request.count(), levels.stream().map(Enum::name).toList(), sourceContext);
 
         Set<Document> sources = new HashSet<>(selected);
 

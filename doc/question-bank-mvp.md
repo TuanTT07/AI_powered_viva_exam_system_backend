@@ -32,6 +32,8 @@ Sheet đầu tiên phải có cột `content`, `bloomLevel`, `rubricId`; cột r
 - `DELETE /api/courses/{courseId}/documents/{documentId}`.
 - `POST /api/courses/{courseId}/questions/generate` với `{ count, topic?, bloomLevels?, rubricId?, documentIds? }`.
 
+Nếu không gửi `topic` (hoặc để trống), backend chọn ngẫu nhiên các đoạn văn bản đã trích từ những tài liệu `READY` được chọn (`documentIds`; bỏ trống thì dùng tài liệu của course), rồi yêu cầu AI tạo câu hỏi từ các đoạn đó. Nhánh này không dùng truy vấn File Search chung chung. Nếu file không trích được chữ (ví dụ PDF chỉ chứa ảnh), API trả 422; cần tài liệu có text hoặc OCR trước. Có `topic` thì AI tiếp tục truy hồi File Search theo chủ đề.
+
 Tài liệu được lưu tại `APP_UPLOAD_DIR` và lập chỉ mục theo provider trong `AI_PROVIDER` (`gemini` hoặc `openai`). Cấu hình OpenAI: `AI_PROVIDER=openai`, `OPENAI_MODEL=gpt-5.4-mini`, `OPENAI_API_KEY=<key>`, `AI_TIMEOUT_SECONDS=45` (thời gian chờ đọc mỗi HTTP request) và `AI_MAX_OUTPUT_TOKENS=700` (giới hạn cả token suy luận lẫn nội dung trả về). Để trống API key thì ứng dụng vẫn khởi động nhưng upload/index và Generate không dùng được OpenAI. `AI_EXPLAIN_LIMIT_PER_USER` hiện chỉ là cấu hình dự phòng, chưa có API giải thích theo người dùng để áp dụng giới hạn này.
 
 Một course đã có Gemini File Search store không tự chuyển thành OpenAI vector store khi đổi provider; cần tạo course mới và upload/index lại tài liệu bằng OpenAI, hoặc xây luồng migration riêng. AI chỉ tạo câu hỏi `DRAFT`; câu hỏi giữ liên kết tới các tài liệu nguồn được chọn nên tài liệu đó không thể bị xoá trước khi xoá các câu hỏi tham chiếu.

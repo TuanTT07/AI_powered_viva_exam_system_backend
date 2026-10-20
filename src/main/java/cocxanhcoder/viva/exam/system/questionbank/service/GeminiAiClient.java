@@ -122,24 +122,35 @@ public class GeminiAiClient implements AiClient {
 
     @Override
     public List<GeneratedQuestion> generateQuestions(String store, String topic, int count, List<String> blooms) {
+        return generateQuestions(store, topic, count, blooms, null);
+    }
+
+    @Override
+    public List<GeneratedQuestion> generateQuestions(String store, String topic, int count, List<String> blooms,
+                                                      String sourceContext) {
         // Keep retrieval and structured generation separate. A combined File Search + JSON
         // background interaction can repeatedly invoke File Search and fail with INTERNAL.
-        Map<String, Object> search = new LinkedHashMap<>();
-        search.put("model", model);
         String requestedTopic = topic == null || topic.isBlank() ? "toàn bộ tài liệu" : topic.trim();
-        String searchTopic = topic == null || topic.isBlank() ? "the main course concepts" : requestedTopic;
-        String englishHint = requestedTopic.toLowerCase(Locale.ROOT).contains("lập trình hướng đối tượng")
-                ? " (Java object-oriented programming / OOP)" : "";
-        search.put("input", "Find relevant passages in the uploaded course files about '" + searchTopic + "'" + englishHint + ". "
-                + "If the topic is in Vietnamese and the files are in English, search using equivalent English terms. "
-                + "Summarize up to 8 concrete facts from the files about concepts, mechanisms, and examples. "
-                + "Include citations when available. Do not write exam questions.");
-        search.put("tools", List.of(Map.of("type", "file_search", "file_search_store_names", List.of(store))));
-        search.put("background", true);
-        String evidence = outputText(waitForInteraction(postGenerationWithRetry(search)));
-        if (isInsufficientEvidence(evidence))
-            throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Gemini chưa truy hồi được bằng chứng phù hợp từ tài liệu. Hãy thử lại hoặc đổi từ khoá chủ đề.");
+        String evidence;
+        if ((topic == null || topic.isBlank()) && sourceContext != null && !sourceContext.isBlank()) {
+            evidence = sourceContext;
+        } else {
+            Map<String, Object> search = new LinkedHashMap<>();
+            search.put("model", model);
+            String searchTopic = topic == null || topic.isBlank() ? "the main course concepts" : requestedTopic;
+            String englishHint = requestedTopic.toLowerCase(Locale.ROOT).contains("lập trình hướng đối tượng")
+                    ? " (Java object-oriented programming / OOP)" : "";
+            search.put("input", "Find relevant passages in the uploaded course files about '" + searchTopic + "'" + englishHint + ". "
+                    + "If the topic is in Vietnamese and the files are in English, search using equivalent English terms. "
+                    + "Summarize up to 8 concrete facts from the files about concepts, mechanisms, and examples. "
+                    + "Include citations when available. Do not write exam questions.");
+            search.put("tools", List.of(Map.of("type", "file_search", "file_search_store_names", List.of(store))));
+            search.put("background", true);
+            evidence = outputText(waitForInteraction(postGenerationWithRetry(search)));
+            if (isInsufficientEvidence(evidence))
+                throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Gemini chưa truy hồi được bằng chứng phù hợp từ tài liệu. Hãy thử lại hoặc đổi từ khoá chủ đề.");
+        }
 
         List<GeneratedQuestion> accepted = new ArrayList<>();
         Set<String> unique = new HashSet<>();
@@ -209,7 +220,10 @@ public class GeminiAiClient implements AiClient {
                 || normalized.contains("xin lỗi") || normalized.contains("rất tiếc")
                 || normalized.contains("vui lòng cung cấp") || normalized.contains("cung cấp thêm")
                 || normalized.contains("cannot find") || normalized.contains("no information available")
-                || normalized.contains("not enough information") || normalized.contains("please provide");
+                || normalized.contains("not enough information") || normalized.contains("please provide")
+                || normalized.contains("no documents") || normalized.contains("no course files")
+                || normalized.contains("no course materials") || normalized.contains("no text passages")
+                || normalized.contains("no files have been uploaded") || normalized.contains("please upload");
     }
 
     private boolean isMetaQuestion(String content) {
@@ -219,7 +233,11 @@ public class GeminiAiClient implements AiClient {
                 || normalized.contains("tài liệu diễn tả") || normalized.contains("tài liệu xác định")
                 || normalized.contains("trong tài liệu") || normalized.contains("thông tin không có")
                 || normalized.contains("thiếu vắng thông tin") || normalized.contains("hệ thống yêu cầu")
-                || normalized.contains("người dùng cần cung cấp") || normalized.contains("sự tiếc nuối");
+                || normalized.contains("người dùng cần cung cấp") || normalized.contains("sự tiếc nuối")
+                || normalized.contains("không tìm thấy tài liệu") || normalized.contains("không có tài liệu")
+                || normalized.contains("tài liệu khóa học") || normalized.contains("tệp khóa học")
+                || normalized.contains("tệp tài liệu") || normalized.contains("tài liệu đã được tải lên")
+                || normalized.contains("phản hồi của hệ thống");
     }
 
     private String outputText(JsonNode response) {
