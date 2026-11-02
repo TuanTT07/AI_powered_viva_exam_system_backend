@@ -94,8 +94,12 @@ app:
     max-upload-bytes: ${APP_MAX_UPLOAD_BYTES:26214400}
     api-key: ${AI_API_KEY:}
   mail:
+    # smtp (mặc định, dùng JavaMailSender) hoặc brevo (gửi qua HTTP API, dùng khi host chặn outbound port SMTP)
+    provider: ${MAIL_PROVIDER:smtp}
     # Địa chỉ hiển thị ở "From" - mặc định dùng chính MAIL_USERNAME (tài khoản Gmail dùng để gửi)
     from: ${MAIL_FROM:${MAIL_USERNAME:}}
+    from-name: ${MAIL_FROM_NAME:AIVES}
+    brevo-api-key: ${BREVO_API_KEY:}
   jwt:
     # Khoá ký token, tối thiểu 32 ký tự. Giá trị mặc định CHỈ dùng khi dev local, deploy thật phải set JWT_SECRET.
     secret: ${JWT_SECRET:dev-only-secret-change-me-at-least-32-characters}
