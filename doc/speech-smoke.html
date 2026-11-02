@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIVES — Deepgram speech smoke test</title>
+<style>
+  body{font:16px system-ui;max-width:850px;margin:32px auto;padding:0 20px;background:#f8fafc;color:#172033}
+  label{display:block;margin:12px 0}input{display:block;box-sizing:border-box;width:100%;padding:8px;margin-top:4px}
+  button{padding:10px 14px;margin:8px 6px 8px 0;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;border:1px solid #ccd5df;padding:14px;max-height:360px;overflow:auto}
+  audio{display:block;width:100%;margin:12px 0}small{color:#475569}
+</style>
+<h1>Kiểm tra Deepgram STT</h1>
+<p>Dùng JWT sinh viên và lượt hỏi AI đã được Backend 1 khởi tạo. Trang không lưu JWT. Serve qua localhost thuộc CORS, không mở bằng file://.</p>
+<label>Backend URL<input id="base" value="http://localhost:8080"></label>
+<label>JWT sinh viên<input id="jwt" type="password" autocomplete="off"></label>
+<label>Exam attempt ID<input id="attempt" autocomplete="off"></label>
+<label>Question turn ID (TranscriptTurn của AI)<input id="prompt" autocomplete="off"></label>
+<button id="tts">Đọc câu hỏi bằng giọng trình duyệt</button>
+<p><small>Cần có giọng tiếng Việt trên máy/trình duyệt. STT không phụ thuộc phần giọng đọc.</small></p>
+<label>File raw PCM S16LE, 16 kHz, mono<input id="pcm" type="file" accept=".pcm,.raw"></label>
+<small>Không chọn WAV/MP3/WebM. Tạo file theo hướng dẫn MODULE3_SPEECH.md. File được gửi theo tốc độ thời gian thực.</small>
+<div><button id="run">Kết nối và gửi audio</button><button id="end" disabled>Kết thúc sớm</button><button id="disconnect">Ngắt kết nối</button></div>
+<h2>Transcript / trạng thái</h2>
+<pre id="transcript"></pre><pre id="log" aria-live="polite"></pre>
+<script type="module">
+const $ = id => document.getElementById(id);
+let ws, heartbeat, streaming = false, answerId, awaitingStart;
+const segments = new Map();
+const log = text => {
+  $('log').textContent = `${new Date().toLocaleTimeString()} ${text}\n` + $('log').textContent.slice(0, 16000);
+};
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const base = () => $('base').value.trim().replace(/\/$/, '');
+async function request(path, method = 'GET') {
+  const res = await fetch(base() + path, {method, headers:{Authorization:`Bearer ${$('jwt').value.trim()}`}, cache:'no-store'});
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `HTTP ${res.status}`);
+  }
+  return res;
+}
+const path = () => `/api/interview/attempts/${encodeURIComponent($('attempt').value.trim())}`;
+function command(type, extra = {}) {
+  if (ws?.readyState !== WebSocket.OPEN) throw new Error('WebSocket chưa mở');
+  ws.send(JSON.stringify({type, requestId:crypto.randomUUID(), ...extra}));
+}
+function disconnect() {
+  streaming = false;
+  clearInterval(heartbeat);
+  awaitingStart?.reject(new Error('Đã ngắt kết nối')); awaitingStart = null;
+  ws?.close(); ws = null;
+  $('end').disabled = true;
+}
+$('disconnect').onclick = disconnect;
+$('end').onclick = () => { streaming = false; $('end').disabled = true; };
+$('tts').onclick = async () => {
+  $('tts').disabled = true;
+  try {
+    if (!('speechSynthesis' in window)) throw new Error('Trình duyệt không hỗ trợ SpeechSynthesis.');
+    const body = await (await request(`${path()}/speech/questions/${encodeURIComponent($('prompt').value.trim())}/playback`)).json();
+    const synth = window.speechSynthesis;
+    if (!synth.getVoices().length) await new Promise(resolve => {
+      const done = () => { synth.removeEventListener('voiceschanged', done); resolve(); };
+      synth.addEventListener('voiceschanged', done); setTimeout(done, 2000);
+    });
+    const voice = synth.getVoices().find(v => v.lang.toLowerCase().startsWith('vi'));
+    if (!voice) throw new Error('Máy chưa có giọng tiếng Việt. Cài giọng vi-VN hoặc dùng máy có giọng này để demo TTS.');
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(body.data.text);
+    utterance.lang = body.data.language; utterance.voice = voice;
+    await new Promise((resolve, reject) => {
+      utterance.onend = resolve;
+      utterance.onerror = event => reject(new Error(`Không đọc được câu hỏi: ${event.error}`));
+      synth.speak(utterance);
+    });
+    log('Đã đọc xong câu hỏi. Có thể bắt đầu gửi câu trả lời.');
+  } catch (e) { log(e.message); }
+  finally { $('tts').disabled = false; }
+};
+$('run').onclick = async () => {
+  $('run').disabled = true;
+  disconnect(); segments.clear(); $('transcript').textContent = ''; answerId = null;
+  try {
+    const file = $('pcm').files[0];
+    if (!file || !file.size || file.size % 2 || file.size > 32000 * 1800) throw new Error('Chọn file PCM hợp lệ, tối đa 30 phút.');
+    const pcm = await file.arrayBuffer();
+    if (new TextDecoder().decode(pcm.slice(0, 4)) === 'RIFF') throw new Error('File WAV có header; hãy chuyển sang raw PCM.');
+    const ticket = (await (await request(`${path()}/speech-ticket`, 'POST')).json()).data;
+    const url = new URL(ticket.websocketPath, base());
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'; url.searchParams.set('ticket', ticket.ticket);
+    ws = new WebSocket(url);
+    const socket = ws;
+    const ready = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Timeout khi kết nối WebSocket')), 15000);
+      socket.onmessage = event => {
+        if (ws !== socket) return;
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'session.ready') { clearTimeout(timeout); resolve(); }
+        if (msg.type === 'answer.started') {
+          answerId = msg.answerId; awaitingStart?.resolve(msg); awaitingStart = null;
+        }
+        if (msg.type.startsWith('transcript.') && msg.answerId === answerId) {
+          segments.set(msg.data.segmentId, msg.data.text);
+          $('transcript').textContent = [...segments].sort((a,b) => Number(a[0])-Number(b[0])).map(x => x[1]).join(' ');
+        }
+        if (msg.type === 'answer.finalized') {
+          $('transcript').textContent = msg.data.text; log(`Đã lưu answerId=${msg.answerId}`);
+          $('run').disabled = false;
+        } else if (msg.type === 'speech.error') {
+          streaming = false; awaitingStart?.reject(new Error(msg.data.message)); awaitingStart = null;
+          log(`${msg.data.code}: ${msg.data.message}`); $('run').disabled = false;
+        } else if (!msg.type.startsWith('transcript.') && msg.type !== 'pong') log(msg.type);
+      };
+      socket.onerror = () => { clearTimeout(timeout); reject(new Error('Không mở được WebSocket; kiểm tra Origin, ticket và backend.')); };
+      socket.onclose = () => {
+        clearTimeout(timeout); reject(new Error('Kết nối đã đóng'));
+        if (ws !== socket) return;
+        streaming = false; clearInterval(heartbeat);
+        awaitingStart?.reject(new Error('Kết nối đã đóng')); awaitingStart = null;
+        $('run').disabled = false; $('end').disabled = true;
+        log('WebSocket đóng. Nếu mất xác nhận, tra cứu answerId trước khi thử lại.');
+      };
+    });
+    await ready;
+    heartbeat = setInterval(() => { if (socket.readyState === WebSocket.OPEN) command('ping'); }, 10000);
+    const started = new Promise((resolve, reject) => { awaitingStart = {resolve, reject}; });
+    command('answer.start', {questionTurnId:$('prompt').value.trim(), audio:{encoding:'PCM_S16LE',sampleRate:16000,channels:1}});
+    const startTimeout = setTimeout(() => { awaitingStart?.reject(new Error('Timeout mở STT')); awaitingStart = null; }, 20000);
+    let begin;
+    try { begin = await started; } finally { clearTimeout(startTimeout); }
+    const deadline = Date.parse(begin.data.deadline);
+    streaming = true; $('end').disabled = false;
+    const sentAt = performance.now();
+    for (let offset = 0; streaming && offset < pcm.byteLength; offset += 640) {
+      if (Date.now() >= deadline - 100) break;
+      if (socket.readyState !== WebSocket.OPEN) throw new Error('Mất kết nối');
+      if (socket.bufferedAmount > 65536) throw new Error('Mạng gửi audio quá chậm; đã dừng thử nghiệm.');
+      socket.send(pcm.slice(offset, offset + 640));
+      // Pace raw PCM at 32KB/s. No decoding of browser MediaRecorder containers here.
+      await sleep(Math.max(0, sentAt + (offset + 640) / 32 - performance.now()));
+    }
+    streaming = false; $('end').disabled = true;
+    command('answer.end', {answerId});
+    log(`Đang chốt answerId=${answerId}. Có thể tra cứu qua REST nếu mất kết nối.`);
+  } catch (e) { log(e.message); disconnect(); $('run').disabled = false; }
+};
+window.addEventListener('beforeunload', () => { disconnect(); window.speechSynthesis?.cancel(); });
+</script>
+</html>

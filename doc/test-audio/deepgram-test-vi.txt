@@ -1,0 +1,1 @@
+Xin chào. Đây là bản ghi âm thử nghiệm cho hệ thống thi vấn đáp. Trong lập trình, tính đóng gói giúp bảo vệ dữ liệu bên trong đối tượng. Ví dụ, các thuộc tính được khai báo riêng tư và được truy cập thông qua phương thức công khai.

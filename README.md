@@ -21,7 +21,15 @@ Hệ thống Thi Vấn đáp Thông minh hỗ trợ Giảng viên tổ chức, �
 1. **Module 1: Ngân hàng câu hỏi & Rubric (`questionbank`)**
 2. **Module 2: Quản lý kỳ thi & lịch thi (`exammgt`)**: Xem chi tiết tài liệu tính năng tại [MODULE2_EXAM_MANAGEMENT.md](file:///d:/CloneRepo/AI_powered_viva_exam_system_backend/MODULE2_EXAM_MANAGEMENT.md)
 3. **Module 3: Lõi phỏng vấn AI (`interview`)**
+   - [Bắt đầu tại đây: bàn giao và phân công BE1/BE2/BE3/FE](doc/TEAM_HANDOFF.md)
+   - [Backend 2: Deepgram WebSocket STT và Browser TTS](doc/MODULE3_SPEECH.md)
+   - [Cấu trúc module interview và speech](doc/MODULE3_ARCHITECTURE.md)
 4. **Module 4: Hỗ trợ chấm điểm bằng AI (`grading`)**
+
+Chức năng 3 gồm hai module logic: `interview` do Backend 1 phụ trách và `speech`
+do Backend 2 phụ trách. Phần speech và nền lưu transcript đã có; điều phối AI hỏi
+xoáy, API start/current/resume và service chấm điểm vẫn cần phát triển tiếp theo
+[tài liệu bàn giao](doc/TEAM_HANDOFF.md).
 
 ---
 

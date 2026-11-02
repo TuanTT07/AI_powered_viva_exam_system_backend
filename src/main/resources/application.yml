@@ -62,6 +62,24 @@ springdoc:
 
 # Cấu hình riêng của AIVES
 app:
+  speech:
+    enabled: ${SPEECH_ENABLED:false}
+    stt-provider: ${SPEECH_STT_PROVIDER:deepgram}
+    deepgram-api-key: ${DEEPGRAM_API_KEY:}
+    deepgram-model: ${DEEPGRAM_STT_MODEL:nova-3}
+    deepgram-language: ${DEEPGRAM_STT_LANGUAGE:vi}
+    language: ${SPEECH_LANGUAGE:vi-VN}
+    ticket-ttl-seconds: ${SPEECH_TICKET_TTL_SECONDS:30}
+    max-concurrent-stt: ${SPEECH_MAX_CONCURRENT_STT:1}
+    max-concurrent-tts: ${SPEECH_MAX_CONCURRENT_TTS:1}
+    provider-timeout-seconds: ${SPEECH_PROVIDER_TIMEOUT_SECONDS:15}
+    finalize-timeout-seconds: ${SPEECH_FINALIZE_TIMEOUT_SECONDS:15}
+    max-answer-seconds: ${SPEECH_MAX_ANSWER_SECONDS:180}
+    idle-timeout-seconds: ${SPEECH_IDLE_TIMEOUT_SECONDS:30}
+    max-connection-minutes: ${SPEECH_MAX_CONNECTION_MINUTES:30}
+    audio-ttl-seconds: ${SPEECH_AUDIO_TTL_SECONDS:600}
+    max-audio-cache-mb: ${SPEECH_MAX_AUDIO_CACHE_MB:16}
+    max-tts-characters: ${SPEECH_MAX_TTS_CHARACTERS:3000}
   ai:
     provider: ${AI_PROVIDER:openai}
     gemini-api-key: ${GEMINI_API_KEY:}
