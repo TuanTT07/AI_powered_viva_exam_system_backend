@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /** Gửi mail qua SMTP (Gmail) bằng JavaMailSender của Spring Boot. */
@@ -22,7 +23,9 @@ public class SmtpMailService implements MailService {
         this.from = from;
     }
 
+    // Chạy nền (async): không chặn request HTTP đang tạo/reset tài khoản nếu SMTP chậm/treo.
     @Override
+    @Async
     public void send(String to, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
