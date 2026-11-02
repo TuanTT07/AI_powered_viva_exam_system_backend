@@ -17,4 +17,11 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     /** Danh sách bài chờ giảng viên duyệt (status = PENDING_REVIEW). */
     Page<Evaluation> findByStatus(EvaluationStatus status, Pageable pageable);
+
+    /** Danh sách evaluation của 1 môn học, lọc theo status (vd: PENDING_REVIEW chờ giảng viên duyệt). */
+    Page<Evaluation> findByQuestionAttempt_ExamAttempt_Exam_Course_IdAndStatus(
+            UUID courseId, EvaluationStatus status, Pageable pageable);
+
+    /** Danh sách evaluation của 1 môn học, không lọc status. */
+    Page<Evaluation> findByQuestionAttempt_ExamAttempt_Exam_Course_Id(UUID courseId, Pageable pageable);
 }
