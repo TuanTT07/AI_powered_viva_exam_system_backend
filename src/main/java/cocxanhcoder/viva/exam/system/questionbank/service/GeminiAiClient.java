@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.SocketTimeoutException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -28,7 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 /**
  * Gemini Developer API implementation using File Search stores for course RAG.
@@ -173,6 +176,66 @@ public class GeminiAiClient implements AiClient {
                     "Gemini chỉ tạo được " + accepted.size() + "/" + count
                             + " câu hỏi hợp lệ; chưa lưu câu hỏi nào. Hãy thử lại với số lượng ít hơn.");
         return accepted;
+    }
+
+    @Override
+    public GradingResult gradeAnswer(String questionContent, List<CriterionInput> criteria, String transcriptText) {
+        requireConfig();
+        Map<String, Object> schema = Map.of("type", "object", "properties", Map.of(
+                "criteria", Map.of("type", "array", "items", Map.of("type", "object", "properties", Map.of(
+                        "criterionId", Map.of("type", "string"), "score", Map.of("type", "number"),
+                        "comment", Map.of("type", "string")),
+                        "required", List.of("criterionId", "score", "comment"))),
+                "overallFeedback", Map.of("type", "string")),
+                "required", List.of("criteria", "overallFeedback"));
+
+        String criteriaText = criteria.stream().map(c -> "- id=" + c.criterionId() + ", tên=\"" + c.criterionName()
+                + "\", điểm tối đa=" + c.maxScore()
+                + (c.description() == null || c.description().isBlank() ? "" : ", mô tả=" + c.description()))
+                .collect(Collectors.joining("\n"));
+
+        String prompt = "Bạn là giảng viên chấm vấn đáp. Câu hỏi: " + questionContent
+                + "\n\nRubric (chấm từng tiêu chí, điểm không vượt quá điểm tối đa):\n" + criteriaText
+                + "\n\nBăng ghi lại phần hỏi đáp (transcript):\n" + transcriptText
+                + "\n\nHãy chấm điểm từng tiêu chí CHỈ dựa trên nội dung câu trả lời của sinh viên trong transcript, "
+                + "viết nhận xét ngắn gọn bằng tiếng Việt cho từng tiêu chí và một nhận xét tổng quan. "
+                + "Trả về đúng JSON theo schema, criterionId phải khớp chính xác id đã cho.";
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))));
+        body.put("generationConfig", Map.of("responseMimeType", "application/json", "responseSchema", schema));
+
+        JsonNode response = post("/models/" + model + ":generateContent", body);
+        String text = response.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText();
+        return parseGradingResult(text, criteria);
+    }
+
+    private GradingResult parseGradingResult(String text, List<CriterionInput> criteria) {
+        try {
+            JsonNode root = mapper.readTree(text);
+            Set<UUID> expected = criteria.stream().map(CriterionInput::criterionId).collect(java.util.stream.Collectors.toSet());
+            Map<UUID, BigDecimal> maxScores = criteria.stream()
+                    .collect(java.util.stream.Collectors.toMap(CriterionInput::criterionId, CriterionInput::maxScore));
+            List<CriterionSuggestion> suggestions = new ArrayList<>();
+            for (JsonNode c : root.path("criteria")) {
+                UUID id = UUID.fromString(c.path("criterionId").asText());
+                BigDecimal score = BigDecimal.valueOf(c.path("score").asDouble());
+                String comment = c.path("comment").asText();
+                if (!expected.contains(id) || comment.isBlank()
+                        || score.compareTo(BigDecimal.ZERO) < 0 || score.compareTo(maxScores.get(id)) > 0)
+                    throw new IllegalArgumentException();
+                suggestions.add(new CriterionSuggestion(id, score, comment));
+            }
+            String overall = root.path("overallFeedback").asText();
+            if (overall.isBlank() || suggestions.size() != expected.size()
+                    || suggestions.stream().map(CriterionSuggestion::criterionId).collect(java.util.stream.Collectors.toSet()).size() != expected.size())
+                throw new IllegalArgumentException();
+            return new GradingResult(suggestions, overall);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "Gemini trả kết quả chấm điểm không hợp lệ");
+        }
     }
 
     private Map<String, Object> generationRequest(String evidence, String topic, int count,

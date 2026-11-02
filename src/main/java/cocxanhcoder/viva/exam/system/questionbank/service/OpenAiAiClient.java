@@ -16,6 +16,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +24,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Minimal OpenAI REST adapter. It deliberately keeps provider protocol out of domain services.
@@ -145,6 +149,59 @@ public class OpenAiAiClient implements AiClient {
             return result;
         } catch (Exception ex) {
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "OpenAI trả dữ liệu câu hỏi không hợp lệ");
+        }
+    }
+
+    @Override
+    public GradingResult gradeAnswer(String questionContent, List<CriterionInput> criteria, String transcriptText) {
+        requireConfig();
+        String criteriaText = criteria.stream().map(c -> "- id=" + c.criterionId() + ", name=\"" + c.criterionName()
+                + "\", maxScore=" + c.maxScore()
+                + (c.description() == null || c.description().isBlank() ? "" : ", description=" + c.description()))
+                .collect(Collectors.joining("\n"));
+        String instructions = "You are grading a Vietnamese oral-exam answer against a rubric. Return ONLY valid JSON: "
+                + "{\"criteria\":[{\"criterionId\":string,\"score\":number,\"comment\":string}],\"overallFeedback\":string}. "
+                + "Score each criterion using only the transcript content, never exceed its maxScore, never go below 0. "
+                + "criterionId must match exactly one of the given ids. Write comments in Vietnamese.";
+        String input = "Question: " + questionContent + "\n\nRubric:\n" + criteriaText + "\n\nTranscript:\n" + transcriptText;
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", model);
+        payload.put("max_output_tokens", maxOutputTokens);
+        payload.put("instructions", instructions);
+        payload.put("input", input);
+        JsonNode response = request("/responses", payload, null);
+        if ("incomplete".equals(response.path("status").asText()))
+            throw new BusinessException(HttpStatus.BAD_GATEWAY,
+                    "OpenAI dừng trước khi chấm xong (" + response.path("incomplete_details").path("reason").asText("unknown") + ")");
+        return parseGradingResult(extractOutputText(response), criteria);
+    }
+
+    private GradingResult parseGradingResult(String text, List<CriterionInput> criteria) {
+        try {
+            JsonNode root = mapper.readTree(text);
+            Set<UUID> expected = criteria.stream().map(CriterionInput::criterionId).collect(Collectors.toSet());
+            Map<UUID, BigDecimal> maxScores = criteria.stream()
+                    .collect(Collectors.toMap(CriterionInput::criterionId, CriterionInput::maxScore));
+            List<CriterionSuggestion> suggestions = new ArrayList<>();
+            for (JsonNode c : root.path("criteria")) {
+                UUID id = UUID.fromString(c.path("criterionId").asText());
+                BigDecimal score = BigDecimal.valueOf(c.path("score").asDouble());
+                String comment = c.path("comment").asText();
+                if (!expected.contains(id) || comment.isBlank()
+                        || score.compareTo(BigDecimal.ZERO) < 0 || score.compareTo(maxScores.get(id)) > 0)
+                    throw new IllegalArgumentException();
+                suggestions.add(new CriterionSuggestion(id, score, comment));
+            }
+            String overall = root.path("overallFeedback").asText();
+            if (overall.isBlank() || suggestions.size() != expected.size()
+                    || suggestions.stream().map(CriterionSuggestion::criterionId).collect(Collectors.toSet()).size() != expected.size())
+                throw new IllegalArgumentException();
+            return new GradingResult(suggestions, overall);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "OpenAI trả kết quả chấm điểm không hợp lệ");
         }
     }
 
