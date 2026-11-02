@@ -10,6 +10,10 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class Application {
 
     public static void main(String[] args) {
+        // Một số máy/mạng không route được IPv6 tới smtp.gmail.com -> JVM thử IPv6 trước
+        // sẽ treo tới khi hết timeout rồi mới fallback IPv4. Ép dùng IPv4 để kết nối ngay.
+        System.setProperty("java.net.preferIPv4Stack", "true");
+
         // Tự động nạp file .env từ thư mục gốc dự án (nếu tồn tại)
 //        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 //        dotenv.entries().forEach(entry -> {
