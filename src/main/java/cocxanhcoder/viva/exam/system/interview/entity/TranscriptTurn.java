@@ -33,6 +33,13 @@ public class TranscriptTurn {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Idempotency key for speech answers; null for AI questions / legacy rows. */
+    @Column(name = "answer_id", unique = true)
+    private UUID answerId;
+
+    @Column(name = "response_to_turn_id", unique = true)
+    private UUID responseToTurnId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "question_attempt_id", nullable = false)
     private QuestionAttempt questionAttempt;
