@@ -64,6 +64,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // preflight của trình duyệt
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        // The handshake interceptor authenticates a short-lived, single-use speech ticket.
+                        .requestMatchers("/ws/interview/speech").permitAll()
+                        .requestMatchers("/api/interview/attempts/*/speech-ticket",
+                                "/api/interview/attempts/*/speech/**", "/api/interview/speech/**")
+                                .hasRole("STUDENT")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // Bật kiểm tra JWT trong header Authorization
