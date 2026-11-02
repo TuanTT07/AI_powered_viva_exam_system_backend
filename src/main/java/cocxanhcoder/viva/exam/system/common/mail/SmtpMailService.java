@@ -3,14 +3,20 @@ package cocxanhcoder.viva.exam.system.common.mail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-/** Gửi mail qua SMTP (Gmail) bằng JavaMailSender của Spring Boot. */
+/**
+ * Gửi mail qua SMTP (Gmail) bằng JavaMailSender của Spring Boot.
+ * Chỉ dùng khi app.mail.provider=smtp (mặc định). Nhiều host cloud (vd Render free tier)
+ * chặn outbound port SMTP 25/465/587 -> nên đổi app.mail.provider=brevo khi deploy ở đó.
+ */
 @Service
+@ConditionalOnProperty(name = "app.mail.provider", havingValue = "smtp", matchIfMissing = true)
 public class SmtpMailService implements MailService {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpMailService.class);
