@@ -2,6 +2,7 @@ package cocxanhcoder.viva.exam.system.academic.controller;
 
 import cocxanhcoder.viva.exam.system.academic.dto.CourseDetailResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseRequest;
+import cocxanhcoder.viva.exam.system.academic.dto.CourseStudentResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.LecturerResponse;
 import cocxanhcoder.viva.exam.system.academic.service.CourseService;
@@ -108,6 +109,12 @@ public class AdminCourseController {
                                                                             @PathVariable UUID lecturerId) {
         return ApiResponse.ok("Phân công giảng viên thành công",
                 courseService.assignLecturer(courseId, lecturerId));
+    }
+
+    @GetMapping("/{courseId}/students")
+    @Operation(summary = "Danh sách sinh viên đã ghi danh")
+    public ResponseEntity<ApiResponse<List<CourseStudentResponse>>> getStudents(@PathVariable UUID courseId) {
+        return ApiResponse.ok("Lấy danh sách sinh viên thành công", courseService.getEnrolledStudents(courseId));
     }
 
     @PutMapping("/{courseId}/students/{studentId}")

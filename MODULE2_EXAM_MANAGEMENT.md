@@ -130,3 +130,10 @@ nhận `content: []`. Dùng `attemptId` để gọi API start/current của phò
 Chi tiết ca dùng `GET /api/v1/student/exams/{examId}/my-slot` với cùng JWT.
 Bỏ tham số `studentId` khỏi FE. Backend luôn tra theo chủ JWT, kể cả khi
 client cũ còn gửi tham số này. Kỳ thi không có ca của sinh viên trả HTTP 404.
+
+## Xếp lịch thi cùng giờ
+
+`POST /api/v1/exams/{examId}/schedule/auto` mặc định dùng `mode: "SIMULTANEOUS"`.
+Mọi sinh viên bắt đầu tại giờ mở kỳ thi và kết thúc sau `slotDurationMinutes`.
+Mỗi sinh viên vẫn có attemptId và số thứ tự riêng. Dùng `mode: "SEQUENTIAL"`
+nếu muốn xếp nối tiếp và áp dụng `breakDurationMinutes` giữa các ca.
