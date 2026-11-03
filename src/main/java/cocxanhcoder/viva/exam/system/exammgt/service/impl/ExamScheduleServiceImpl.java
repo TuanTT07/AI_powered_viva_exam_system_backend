@@ -77,6 +77,7 @@ public class ExamScheduleServiceImpl implements ExamScheduleService {
             throw new BusinessException("Danh sách sinh viên trống hoặc không tìm thấy trong hệ thống!");
         }
 
+        boolean sequential = request.mode() == AutoScheduleRequest.ScheduleMode.SEQUENTIAL;
         OffsetDateTime currentSlotStart = exam.getStartTime();
         int slotDuration = request.slotDurationMinutes();
         int breakDuration = request.breakDurationMinutes() != null ? request.breakDurationMinutes() : 2;
@@ -88,7 +89,11 @@ public class ExamScheduleServiceImpl implements ExamScheduleService {
             OffsetDateTime slotEnd = currentSlotStart.plusMinutes(slotDuration);
 
             if (slotEnd.isAfter(exam.getEndTime())) {
-                throw new BusinessException("Khung thời gian kỳ thi không đủ để xếp ca thi cho sinh viên " + student.getFullName());
+                long requiredMinutes = sequential
+                        ? (long) students.size() * slotDuration + (students.size() - 1L) * breakDuration
+                        : slotDuration;
+                throw new BusinessException("Khung giờ kỳ thi cần ít nhất " + requiredMinutes
+                        + " phút với cấu hình xếp lịch này.");
             }
 
             ExamAttempt attempt = examAttemptRepository.findByExamIdAndStudentId(examId, student.getId())
@@ -112,7 +117,7 @@ public class ExamScheduleServiceImpl implements ExamScheduleService {
 
             attemptsToSave.add(attempt);
 
-            currentSlotStart = slotEnd.plusMinutes(breakDuration);
+            if (sequential) currentSlotStart = slotEnd.plusMinutes(breakDuration);
         }
 
         List<ExamAttempt> saved = examAttemptRepository.saveAll(attemptsToSave);

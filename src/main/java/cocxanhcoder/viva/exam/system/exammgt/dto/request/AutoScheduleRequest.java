@@ -16,9 +16,18 @@ public record AutoScheduleRequest(
     Integer slotDurationMinutes,
 
     @Min(value = 0, message = "Thời gian nghỉ giữa các ca không được âm")
-    Integer breakDurationMinutes
+    Integer breakDurationMinutes,
+
+    ScheduleMode mode
 ) {
+    public enum ScheduleMode { SIMULTANEOUS, SEQUENTIAL }
+
+    public AutoScheduleRequest(List<UUID> studentIds, Integer slotDurationMinutes, Integer breakDurationMinutes) {
+        this(studentIds, slotDurationMinutes, breakDurationMinutes, ScheduleMode.SIMULTANEOUS);
+    }
+
     public AutoScheduleRequest {
+        if (mode == null) mode = ScheduleMode.SIMULTANEOUS;
         if (breakDurationMinutes == null) breakDurationMinutes = 2;
     }
 }

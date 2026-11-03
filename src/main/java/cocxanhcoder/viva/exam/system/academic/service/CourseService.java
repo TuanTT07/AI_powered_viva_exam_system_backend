@@ -131,6 +131,11 @@ public class CourseService {
         if (!courseRepository.existsByLecturers_IdAndId(lecturerId, courseId)) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "Bạn không được phân công môn học này");
         }
+        return getEnrolledStudents(courseId);
+    }
+
+    public List<CourseStudentResponse> getEnrolledStudents(UUID courseId) {
+        findCourse(courseId);
         return courseRepository.findStudents(courseId).stream()
                 .map(student -> new CourseStudentResponse(student.getId(), student.getUserCode(),
                         student.getFullName(), student.getEmail()))

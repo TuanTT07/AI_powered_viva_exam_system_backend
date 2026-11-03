@@ -79,6 +79,7 @@ class ExamScheduleServiceImplTest {
     @Test
     @DisplayName("Tự động chia slot thi thành công khi khung giờ đủ lớn")
     void autoScheduleSlots_Success() {
+        exam.setEndTime(exam.getStartTime().plusMinutes(15));
         List<UUID> studentIds = List.of(student1.getId(), student2.getId());
         AutoScheduleRequest request = new AutoScheduleRequest(studentIds, 15, 2);
 
@@ -92,15 +93,17 @@ class ExamScheduleServiceImplTest {
         assertEquals(2, responses.size());
         assertEquals(1, responses.get(0).slotNumber());
         assertEquals(2, responses.get(1).slotNumber());
+        assertEquals(responses.get(0).scheduledStartTime(), responses.get(1).scheduledStartTime());
+        assertEquals(responses.get(0).scheduledEndTime(), responses.get(1).scheduledEndTime());
         verify(examAttemptRepository).saveAll(anyList());
     }
 
     @Test
     @DisplayName("Ném ngoại lệ BusinessException khi thời gian kỳ thi quá ngắn không đủ xếp slot")
     void autoScheduleSlots_NotEnoughTime_ThrowsException() {
-        exam.setEndTime(exam.getStartTime().plusMinutes(10)); // Chỉ 10 phút không đủ 2 SV thi
+        exam.setEndTime(exam.getStartTime().plusMinutes(30));
         List<UUID> studentIds = List.of(student1.getId(), student2.getId());
-        AutoScheduleRequest request = new AutoScheduleRequest(studentIds, 15, 2);
+        AutoScheduleRequest request = new AutoScheduleRequest(studentIds, 15, 2, AutoScheduleRequest.ScheduleMode.SEQUENTIAL);
 
         when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
         when(userRepository.findAllById(studentIds)).thenReturn(List.of(student1, student2));
