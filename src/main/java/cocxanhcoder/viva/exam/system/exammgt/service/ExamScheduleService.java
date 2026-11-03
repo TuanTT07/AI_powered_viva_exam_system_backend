@@ -6,6 +6,11 @@ import cocxanhcoder.viva.exam.system.exammgt.dto.request.RescheduleCandidateRequ
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.CandidateScheduleResponse;
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.StudentExamSlotResponse;
 
+import cocxanhcoder.viva.exam.system.exammgt.dto.response.StudentExamSummary;
+import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttemptStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +23,8 @@ public interface ExamScheduleService {
     CandidateScheduleResponse rescheduleCandidate(UUID examId, RescheduleCandidateRequest request);
 
     List<CandidateScheduleResponse> getCandidateSchedules(UUID examId);
+
+    Page<StudentExamSummary> getStudentExams(UUID studentId, ExamAttemptStatus status, Pageable pageable);
 
     StudentExamSlotResponse getStudentExamSlot(UUID examId, UUID studentId);
 }

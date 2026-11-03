@@ -66,7 +66,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         // The handshake interceptor authenticates a short-lived, single-use speech ticket.
                         .requestMatchers("/ws/interview/speech").permitAll()
-                        .requestMatchers("/api/interviews/**", "/api/interview/attempts/*/speech-ticket",
+                        .requestMatchers("/api/v1/student/exams", "/api/v1/student/exams/**",
+                                "/api/interviews/**", "/api/interview/attempts/*/speech-ticket",
                                 "/api/interview/attempts/*/speech/**", "/api/interview/speech/**")
                                 .hasRole("STUDENT")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

@@ -25,6 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import cocxanhcoder.viva.exam.system.exammgt.dto.response.StudentExamSummary;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -142,6 +146,12 @@ public class ExamScheduleServiceImpl implements ExamScheduleService {
                 .stream()
                 .map(ExamAttemptMapper::toScheduleResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<StudentExamSummary> getStudentExams(UUID studentId, ExamAttemptStatus status, Pageable pageable) {
+        return examAttemptRepository.findStudentExams(studentId, status, pageable);
     }
 
     @Override
