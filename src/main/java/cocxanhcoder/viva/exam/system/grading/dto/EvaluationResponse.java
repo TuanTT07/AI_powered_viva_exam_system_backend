@@ -23,7 +23,21 @@ public record EvaluationResponse(
         OffsetDateTime createdAt,
         List<TranscriptTurnResponse> transcript,
         String audioUrl,
-        OffsetDateTime publishedAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        UUID examAttemptId,
+        UUID studentId,
+        String studentName,
+        String studentCode,
+        OffsetDateTime publishedAt
 ) {
+    public EvaluationResponse(
+            UUID id, UUID questionAttemptId, UUID questionId, String questionContent,
+            UUID gradedById, String gradedByName, BigDecimal aiSuggestedScore, BigDecimal finalScore,
+            BigDecimal maxScore, String overallFeedback, List<CriterionScore> criteria,
+            EvaluationStatus status, OffsetDateTime createdAt, List<TranscriptTurnResponse> transcript,
+            String audioUrl, OffsetDateTime updatedAt) {
+        this(id, questionAttemptId, questionId, questionContent, gradedById, gradedByName,
+                aiSuggestedScore, finalScore, maxScore, overallFeedback, criteria, status,
+                createdAt, transcript, audioUrl, updatedAt, null, null, null, null, null);
+    }
 }
