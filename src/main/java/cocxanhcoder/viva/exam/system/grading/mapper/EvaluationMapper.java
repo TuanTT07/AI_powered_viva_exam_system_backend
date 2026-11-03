@@ -41,6 +41,7 @@ public class EvaluationMapper {
                                 t.getId(), t.getTurnOrder(), t.getSpeaker(), t.getTextContent(),
                                 t.getAudioClipUrl(), t.getTurnType(), t.getCreatedAt())).toList(),
                 evaluation.getQuestionAttempt().getExamAttempt().getAudioRecordUrl(),
+                evaluation.getPublishedAt(),
                 evaluation.getUpdatedAt());
     }
 }

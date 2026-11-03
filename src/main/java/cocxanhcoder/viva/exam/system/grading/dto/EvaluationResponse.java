@@ -23,6 +23,7 @@ public record EvaluationResponse(
         OffsetDateTime createdAt,
         List<TranscriptTurnResponse> transcript,
         String audioUrl,
+        OffsetDateTime publishedAt,
         OffsetDateTime updatedAt
 ) {
 }
