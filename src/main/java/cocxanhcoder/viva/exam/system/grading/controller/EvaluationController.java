@@ -8,6 +8,7 @@ import cocxanhcoder.viva.exam.system.grading.dto.FinalizeEvaluationRequest;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
 import cocxanhcoder.viva.exam.system.grading.service.EvaluationService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,8 +20,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 public class EvaluationController {
@@ -60,6 +59,16 @@ public class EvaluationController {
         var pageable = PageableUtils.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return ApiResponse.ok("Lấy danh sách kết quả chấm điểm thành công",
                 evaluationService.findByCourse(actor(jwt), courseId, status, pageable));
+    }
+
+    @GetMapping("/api/exams/{examId}/evaluations")
+    public ResponseEntity<ApiResponse<PageResponse<EvaluationResponse>>> findByExam(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId,
+            @RequestParam(required = false) EvaluationStatus status,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        var pageable = PageableUtils.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ApiResponse.ok("Lấy danh sách kết quả chấm điểm thành công",
+                evaluationService.findByExam(actor(jwt), examId, status, pageable));
     }
 
     private UUID actor(Jwt jwt) {

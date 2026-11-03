@@ -5,6 +5,7 @@ import cocxanhcoder.viva.exam.system.academic.repository.CourseRepository;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.CreateExamRequest;
+import cocxanhcoder.viva.exam.system.exammgt.dto.request.QuestionConfigDto;
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.UpdateExamRequest;
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.UpdateExamStatusRequest;
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.CandidateScheduleResponse;
@@ -18,20 +19,26 @@ import cocxanhcoder.viva.exam.system.exammgt.mapper.ExamMapper;
 import cocxanhcoder.viva.exam.system.exammgt.repository.ExamAttemptRepository;
 import cocxanhcoder.viva.exam.system.exammgt.repository.ExamRepository;
 import cocxanhcoder.viva.exam.system.exammgt.service.ExamService;
+import cocxanhcoder.viva.exam.system.questionbank.entity.QuestionStatus;
+import cocxanhcoder.viva.exam.system.questionbank.repository.QuestionRepository;
+import cocxanhcoder.viva.exam.system.questionbank.service.CourseAccessService;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
-
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ExamServiceImpl implements ExamService {
 
+    private final QuestionRepository questionRepository;
+    private final CourseAccessService courseAccess;
     private final ExamRepository examRepository;
     private final CourseRepository courseRepository;
     private final ExamAttemptRepository examAttemptRepository;
@@ -74,7 +81,9 @@ public class ExamServiceImpl implements ExamService {
         exam.setStartTime(request.startTime());
         exam.setEndTime(request.endTime());
         if (request.examConfig() != null) {
-            exam.setExamConfig(ExamMapper.toConfigMap(request.examConfig()));
+            var config = ExamMapper.toConfigMap(request.examConfig());
+            config.put("questionIds", ExamMapper.questionIds(exam.getExamConfig()).stream().map(UUID::toString).toList());
+            exam.setExamConfig(config);
         }
 
         Exam updated = examRepository.save(exam);
@@ -110,6 +119,47 @@ public class ExamServiceImpl implements ExamService {
     public Page<ExamResponse> getExams(UUID courseId, ExamStatus status, Pageable pageable) {
         return examRepository.searchExams(courseId, status, pageable)
                 .map(ExamMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuestionConfigDto getQuestionConfig(UUID actorId, UUID examId) {
+        Exam exam = managedExam(actorId, examId);
+        var config = ExamMapper.parseConfig(exam.getExamConfig());
+        return new QuestionConfigDto(
+                ExamMapper.questionIds(exam.getExamConfig()), config.timeLimitPerTurnSeconds(), config.maxFollowUpQuestions());
+    }
+
+    @Override
+    public QuestionConfigDto updateQuestionConfig(UUID actorId, UUID examId,
+            QuestionConfigDto request) {
+        Exam exam = managedExam(actorId, examId);
+        if (exam.getStatus() != ExamStatus.DRAFT && exam.getStatus() != ExamStatus.PUBLISHED)
+            throw new BusinessException("Chỉ được cấu hình câu hỏi trước khi kỳ thi bắt đầu");
+        if (new HashSet<>(request.questionIds()).size() != request.questionIds().size())
+            throw new BusinessException("Danh sách câu hỏi bị trùng lặp");
+        var questions = questionRepository.findAllById(request.questionIds());
+        if (questions.size() != request.questionIds().size())
+            throw new BusinessException("Có câu hỏi không tồn tại");
+        for (var question : questions) {
+            if (!question.getCourse().getId().equals(exam.getCourse().getId())
+                    || question.getStatus() != QuestionStatus.APPROVED)
+                throw new BusinessException("Câu hỏi phải thuộc môn học của kỳ thi và đã được duyệt");
+        }
+        var config = new HashMap<String, Object>(exam.getExamConfig() == null ? java.util.Map.of() : exam.getExamConfig());
+        config.put("questionIds", request.questionIds().stream().map(UUID::toString).toList());
+        config.put("timeLimitPerTurnSeconds", request.timeLimitPerTurnSeconds());
+        config.put("maxFollowUpQuestions", request.maxFollowUpQuestions());
+        exam.setExamConfig(config);
+        examRepository.save(exam);
+        return request;
+    }
+
+    private Exam managedExam(UUID actorId, UUID examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam", examId));
+        courseAccess.requireManager(actorId, exam.getCourse().getId());
+        return exam;
     }
 
     @Override

@@ -1,15 +1,15 @@
 package cocxanhcoder.viva.exam.system.exammgt.service;
 
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.CreateExamRequest;
+import cocxanhcoder.viva.exam.system.exammgt.dto.request.QuestionConfigDto;
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.UpdateExamRequest;
 import cocxanhcoder.viva.exam.system.exammgt.dto.request.UpdateExamStatusRequest;
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.ExamDetailResponse;
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.ExamResponse;
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamStatus;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
-import java.util.UUID;
 
 public interface ExamService {
 
@@ -22,6 +22,11 @@ public interface ExamService {
     ExamDetailResponse getExamDetail(UUID id);
 
     Page<ExamResponse> getExams(UUID courseId, ExamStatus status, Pageable pageable);
+
+    QuestionConfigDto getQuestionConfig(UUID actorId, UUID examId);
+
+    QuestionConfigDto updateQuestionConfig(UUID actorId, UUID examId,
+            QuestionConfigDto request);
 
     void deleteExam(UUID id);
 }

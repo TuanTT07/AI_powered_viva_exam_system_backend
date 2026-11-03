@@ -12,15 +12,14 @@ import cocxanhcoder.viva.exam.system.exammgt.service.QuestionSelectorService;
 import cocxanhcoder.viva.exam.system.questionbank.entity.Question;
 import cocxanhcoder.viva.exam.system.questionbank.entity.QuestionStatus;
 import cocxanhcoder.viva.exam.system.questionbank.repository.QuestionRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +37,13 @@ public class QuestionSelectorServiceImpl implements QuestionSelectorService {
         // 1. Lấy tất cả các câu hỏi APPROVED thuộc môn học
         List<Question> approvedQuestions = questionRepository
                 .findByCourseIdAndStatus(exam.getCourse().getId(), QuestionStatus.APPROVED);
+
+        List<UUID> configuredIds = ExamMapper.questionIds(exam.getExamConfig());
+        if (!configuredIds.isEmpty()) {
+            approvedQuestions = approvedQuestions.stream().filter(q -> configuredIds.contains(q.getId())).toList();
+            if (approvedQuestions.size() != configuredIds.size())
+                throw new BusinessException("Danh sách câu hỏi đã chọn có câu không còn được duyệt hoặc không thuộc môn học");
+        }
 
         if (approvedQuestions.isEmpty()) {
             throw new BusinessException("Ngân hàng câu hỏi của môn học chưa có câu hỏi nào được duyệt (APPROVED)!");
