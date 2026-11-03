@@ -3,6 +3,8 @@ package cocxanhcoder.viva.exam.system.exammgt.repository;
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttempt;
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttemptStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -11,6 +13,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ExamAttemptRepository extends JpaRepository<ExamAttempt, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from ExamAttempt a where a.id = :id")
+    Optional<ExamAttempt> findLockedById(@Param("id") UUID id);
+
+    @Query("select a.id from ExamAttempt a where a.status = :status")
+    List<UUID> findIdsByStatus(@Param("status") ExamAttemptStatus status);
 
     List<ExamAttempt> findByExamIdOrderByScheduledStartTimeAsc(UUID examId);
 

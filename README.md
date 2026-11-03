@@ -27,9 +27,7 @@ Hệ thống Thi Vấn đáp Thông minh hỗ trợ Giảng viên tổ chức, �
 4. **Module 4: Hỗ trợ chấm điểm bằng AI (`grading`)**
 
 Chức năng 3 gồm hai module logic: `interview` do Backend 1 phụ trách và `speech`
-do Backend 2 phụ trách. Phần speech và nền lưu transcript đã có; điều phối AI hỏi
-xoáy, API start/current/resume và service chấm điểm vẫn cần phát triển tiếp theo
-[tài liệu bàn giao](doc/TEAM_HANDOFF.md).
+do Backend 2 phụ trách. API start/current, điều phối hỏi xoáy và giới hạn thời gian theo từng lượt hỏi nằm trong module interview. Xem [hợp đồng tích hợp FE1](doc/TEAM_HANDOFF.md#api-phòng-thi-be1-hiện-có).
 
 ---
 

@@ -1,0 +1,962 @@
+{
+  "info": {
+    "name": "AIVES — Full Interview E2E",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Dùng trên backend và DB thử nghiệm. Chạy từng folder theo thứ tự. Bước audio dùng doc/speech-smoke.html để gửi PCM thật qua WebSocket. Không chạy toàn bộ bằng Collection Runner một lần."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Tạo tài khoản và môn học",
+      "item": [
+        {
+          "name": "Đăng nhập admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const runId = Date.now().toString(36);",
+                  "pm.collectionVariables.set(\"runId\", runId);",
+                  "pm.collectionVariables.set(\"lecturerEmail\", \"viva-lecturer-\" + runId + \"@example.test\");",
+                  "pm.collectionVariables.set(\"studentEmail\", \"viva-student-\" + runId + \"@example.test\");",
+                  "const now = Date.now();",
+                  "pm.collectionVariables.set(\"examStart\", new Date(now + 60000).toISOString());",
+                  "pm.collectionVariables.set(\"examEnd\", new Date(now + 3600000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const adminToken = pm.response.json().data.accessToken; pm.expect(adminToken).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"adminToken\", adminToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo tài khoản lecturer",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/users",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"LECTURER\",\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{initialPassword}}\",\n  \"fullName\": \"Interview test lecturer\",\n  \"userCode\": \"lecturer-{{runId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const lecturerId = pm.response.json().data.id; pm.expect(lecturerId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"lecturerId\", lecturerId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo tài khoản student",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/users",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"STUDENT\",\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{initialPassword}}\",\n  \"fullName\": \"Interview test student\",\n  \"userCode\": \"student-{{runId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const studentId = pm.response.json().data.id; pm.expect(studentId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"studentId\", studentId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo môn học",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/courses",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseCode\": \"VIVA-{{runId}}\",\n  \"courseName\": \"Viva interview E2E\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const courseId = pm.response.json().data.id; pm.expect(courseId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"courseId\", courseId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Phân công giảng viên",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/courses/{{courseId}}/lecturers/{{lecturerId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập lecturer bằng mật khẩu tạm",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{initialPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const lecturerToken = pm.response.json().data.accessToken; pm.expect(lecturerToken).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"lecturerToken\", lecturerToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đổi mật khẩu lecturer",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/change-password",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{initialPassword}}\",\n  \"newPassword\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập lecturer lại sau đổi mật khẩu",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lecturerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const lecturerToken = pm.response.json().data.accessToken; pm.expect(lecturerToken).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"lecturerToken\", lecturerToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập student bằng mật khẩu tạm",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{initialPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const studentToken = pm.response.json().data.accessToken; pm.expect(studentToken).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"studentToken\", studentToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đổi mật khẩu student",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/change-password",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{initialPassword}}\",\n  \"newPassword\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập student lại sau đổi mật khẩu",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const studentToken = pm.response.json().data.accessToken; pm.expect(studentToken).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"studentToken\", studentToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Environment cần adminEmail, adminPassword, initialPassword, testPassword. Hai mật khẩu thử phải khác nhau. Backend có thể gửi mail tạo tài khoản, nên dùng backend dev."
+    },
+    {
+      "name": "02 — Chuẩn bị đề và mở phòng thi",
+      "item": [
+        {
+          "name": "Tạo rubric",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/courses/{{courseId}}/rubrics",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rubricName\": \"Tính đóng gói\",\n  \"criteria\": [\n    {\n      \"criterionName\": \"Khái niệm và vận dụng\",\n      \"description\": \"Giải thích vai trò của private, kiểm tra dữ liệu khi cập nhật và nêu ví dụ đối tượng có invariant.\",\n      \"maxScore\": 10\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const rubricId = pm.response.json().data.id; pm.expect(rubricId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"rubricId\", rubricId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo câu chính",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/questions",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"rubricId\": \"{{rubricId}}\",\n  \"content\": \"Tính đóng gói trong Java là gì? Hãy giải thích cách nó bảo vệ dữ liệu và minh họa bằng ví dụ.\",\n  \"bloomLevel\": \"UNDERSTAND\",\n  \"aiGenerated\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const questionId = pm.response.json().data.id; pm.expect(questionId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"questionId\", questionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Duyệt câu hỏi",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/questions/{{questionId}}/approve",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.status).to.eql(\"APPROVED\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo kỳ thi",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/exams",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"title\": \"E2E interview {{runId}}\",\n  \"startTime\": \"{{examStart}}\",\n  \"endTime\": \"{{examEnd}}\",\n  \"examConfig\": {\n    \"maxMainQuestions\": 1,\n    \"maxFollowUpQuestions\": 1,\n    \"timeLimitPerTurnSeconds\": 180,\n    \"antiOverlapEnabled\": false\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "const examId = pm.response.json().id; pm.expect(examId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"examId\", examId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xếp ca và giao câu",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/exams/{{examId}}/schedule/auto",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentIds\": [\n    \"{{studentId}}\"\n  ],\n  \"slotDurationMinutes\": 15,\n  \"breakDurationMinutes\": 0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const attemptId = pm.response.json() .find(row => row.studentId === pm.collectionVariables.get(\"studentId\")).attemptId; pm.expect(attemptId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"attemptId\", attemptId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mở lượt thi READY",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/exams/{{examId}}/attempts/{{attemptId}}/reset",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().status).to.eql(\"READY\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sinh viên bắt đầu thi",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/interviews/{{attemptId}}/start",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const state = pm.response.json().data;",
+                  "pm.expect(state.status).to.eql(\"AWAITING_ANSWER\");",
+                  "const questionTurnId = state.prompt.questionTurnId; pm.expect(questionTurnId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"questionTurnId\", questionTurnId);",
+                  "const mainTurnId = state.prompt.questionTurnId; pm.expect(mainTurnId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"mainTurnId\", mainTurnId);",
+                  "const questionAttemptId = state.prompt.questionAttemptId; pm.expect(questionAttemptId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"questionAttemptId\", questionAttemptId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đọc câu đầu bằng playback",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/interview/attempts/{{attemptId}}/speech/questions/{{questionTurnId}}/playback",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.questionTurnId).to.eql(pm.collectionVariables.get(\"questionTurnId\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Sau Start, gửi audio câu chính ngay bằng trang speech-smoke. Deadline đã bắt đầu."
+    },
+    {
+      "name": "03 — Kiểm tra AI hỏi xoáy",
+      "item": [
+        {
+          "name": "Đọc câu follow-up sau answer.finalized",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/interviews/{{attemptId}}/current",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const state = pm.response.json().data;",
+                  "pm.expect(state.status).to.eql(\"AWAITING_ANSWER\");",
+                  "const questionTurnId = state.prompt.questionTurnId; pm.expect(questionTurnId).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"questionTurnId\", questionTurnId);",
+                  "pm.test(\"AI đã tạo lượt hỏi mới trên cùng câu chính\", () => {",
+                  "  pm.expect(state.prompt.questionTurnId).not.to.eql(pm.collectionVariables.get(\"mainTurnId\"));",
+                  "  pm.expect(state.prompt.questionAttemptId).to.eql(pm.collectionVariables.get(\"questionAttemptId\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Nếu PROCESSING, gửi lại sau khoảng một giây. COMPLETED tại bước này nghĩa là lần chạy chưa sinh follow-up. Kiểm tra transcript và cấu hình AI rồi chạy lại với câu trả lời còn thiếu. Khi có câu hỏi mới, gửi audio lần hai bằng questionTurnId mới."
+    },
+    {
+      "name": "04 — Hoàn tất và chấm điểm",
+      "item": [
+        {
+          "name": "Xác nhận kết thúc lượt thi",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/interviews/{{attemptId}}/current",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.status).to.eql(\"COMPLETED\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Yêu cầu AI chấm transcript",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/question-attempts/{{questionAttemptId}}/evaluation/ai-grade",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.status).to.eql(\"PENDING_REVIEW\");",
+                  "const criteria = pm.response.json().data.criteria; pm.expect(criteria).to.be.an(\"array\").and.not.empty;",
+                  "pm.collectionVariables.set(\"finalEvaluationBody\", JSON.stringify({criteria: criteria.map(c => ({criterionId: c.criterionId, finalScore: c.aiScore, comment: c.comment})), overallFeedback: \"Đã kiểm tra trong luồng thử.\"}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Giảng viên chốt điểm",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/question-attempts/{{questionAttemptId}}/evaluation/final",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{finalEvaluationBody}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.status).to.eql(\"GRADED\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đọc kết quả đã chốt",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/question-attempts/{{questionAttemptId}}/evaluation",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lecturerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.expect(pm.response.json().data.status).to.eql(\"GRADED\");"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Chạy sau khi speech chốt câu follow-up. Có thể chạy lại request kiểm tra hoàn tất nếu AI còn PROCESSING."
+    },
+    {
+      "name": "Test riêng BE1 — Text + AI thật",
+      "description": "Chạy từng request. Sau folder 02, nộp text câu chính, chạy folder 03 để lấy ID mới, rồi nộp text câu hỏi xoáy. Dùng profile local-test.",
+      "item": [
+        {
+          "name": "Nộp text — Câu chính",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/interviews/{{attemptId}}/test-answers",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questionTurnId\": \"{{questionTurnId}}\",\n  \"text\": \"Tính đóng gói là để thuộc tính private và truy cập qua phương thức public.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Đã lưu transcript\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.transcriptTurnId).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nộp text — Câu hỏi xoáy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/interviews/{{attemptId}}/test-answers",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questionTurnId\": \"{{questionTurnId}}\",\n  \"text\": \"Ví dụ tài khoản ngân hàng chỉ cho rút tiền qua phương thức kiểm tra số dư.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Đã lưu transcript\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.transcriptTurnId).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

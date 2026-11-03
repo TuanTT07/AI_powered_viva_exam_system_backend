@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -61,7 +62,18 @@ public class TranscriptTurn {
     @Column(name = "turn_type", length = 50)
     private TurnType turnType;
 
+    @Column(name = "deadline_at")
+    private Instant deadlineAt;
+
+    @Column(name = "timed_out_at")
+    private Instant timedOutAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    /** A lecturer reset reuses QuestionAttempt while retaining earlier transcript rows. */
+    public boolean belongsToCurrentRun(QuestionAttempt attempt) {
+        return attempt.getStartTime() == null || createdAt == null || !createdAt.isBefore(attempt.getStartTime());
+    }
 }

@@ -152,6 +152,22 @@ class SpeechSessionServiceTest {
         assertEquals(0, provider.audioBytes.get());
     }
 
+    @Test void reconnectKeepsTheOriginalPromptDeadline() throws Exception {
+        Instant deadline = Instant.now().plusSeconds(20);
+        when(access.requirePrompt(student, attempt, prompt))
+                .thenReturn(new InterviewPrompt(prompt, question, "Question?", 60, deadline));
+        start();
+        service.disconnect("socket-1");
+        assertTrue(provider.closed.await(3, TimeUnit.SECONDS));
+        service.connect(socket("socket-2"), grant(attempt));
+        service.command("socket-2", new ClientEvent("answer.start", UUID.randomUUID(), prompt, null,
+                new AudioFormat("PCM_S16LE", 16000, 1)));
+
+        var starts = messages.stream().filter(m -> m.path("type").asText().equals("answer.started")).toList();
+        assertEquals(2, starts.size());
+        starts.forEach(m -> assertEquals(deadline.toString(), m.path("data").path("deadline").asText()));
+    }
+
     @Test void invalidFormatCannotOpenProvider() {
         service.command("socket-1", new ClientEvent("answer.start", startRequest, prompt, null,
                 new AudioFormat("webm", 48000, 2)));

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /** Shared persistence boundary. BE1 should use the same QA lock when appending AI turns. */
@@ -37,7 +38,8 @@ public class TranscriptService implements InterviewAnswers {
                 || qa.getStatus() != cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttemptStatus.IN_PROGRESS)
             throw new BusinessException("Câu hỏi không thuộc lượt thi đang hoạt động");
         var history = turns.findByQuestionAttemptIdOrderByTurnOrderAsc(questionAttempt);
-        if (!history.isEmpty() && history.getLast().getSpeaker() == Speaker.AI)
+        if (!history.isEmpty() && history.getLast().getSpeaker() == Speaker.AI
+                && history.getLast().belongsToCurrentRun(qa))
             throw new BusinessException(HttpStatus.CONFLICT, "Câu hỏi trước chưa được trả lời");
         TranscriptTurn row = new TranscriptTurn();
         row.setQuestionAttempt(qa);
@@ -45,6 +47,8 @@ public class TranscriptService implements InterviewAnswers {
         row.setSpeaker(Speaker.AI);
         row.setTurnType(type);
         row.setTextContent(text.strip());
+        row.setDeadlineAt(Instant.now().truncatedTo(ChronoUnit.MICROS)
+                .plusSeconds(InterviewTiming.turnSeconds(qa.getExamAttempt())));
         return turns.saveAndFlush(row).getId();
     }
 

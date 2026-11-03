@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -47,16 +48,19 @@ public class InterviewAccessService implements InterviewAccess {
         QuestionAttempt qa = turn.getQuestionAttempt();
         if (!qa.getExamAttempt().getId().equals(attemptId)
                 || qa.getStatus() != QuestionAttemptStatus.IN_PROGRESS
+                || !turn.belongsToCurrentRun(qa)
                 || turn.getSpeaker() != Speaker.AI
                 || (turn.getTurnType() != TurnType.MAIN_QUESTION && turn.getTurnType() != TurnType.FOLLOW_UP))
             throw new BusinessException(HttpStatus.CONFLICT, "Lượt hỏi không hợp lệ hoặc không còn hoạt động");
         var latest = turns.findByQuestionAttemptIdOrderByTurnOrderAsc(qa.getId());
         if (latest.isEmpty() || !latest.getLast().getId().equals(promptId))
             throw new BusinessException(HttpStatus.CONFLICT, "Chỉ được trả lời lượt hỏi mới nhất chưa được trả lời");
-        var configuration = qa.getExamAttempt().getExam().getExamConfig();
-        Object configured = configuration == null ? null : configuration.get("timeLimitPerTurnSeconds");
-        int limit = configured instanceof Number n && n.intValue() >= 10 ? n.intValue() : 60;
-        return new InterviewPrompt(promptId, qa.getId(), turn.getTextContent(), limit);
+        Instant deadline = InterviewTiming.deadline(turn);
+        if (deadline != null && !Instant.now().isBefore(
+                deadline.plusSeconds(InterviewTiming.FINALIZATION_GRACE_SECONDS)))
+            throw new BusinessException(HttpStatus.CONFLICT, "Lượt hỏi đã hết thời gian");
+        return new InterviewPrompt(promptId, qa.getId(), turn.getTextContent(),
+                InterviewTiming.turnSeconds(qa.getExamAttempt()), deadline);
     }
 
 }
