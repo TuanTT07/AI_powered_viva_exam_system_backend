@@ -94,7 +94,7 @@ class EvaluationServiceTest {
         rubric.setCriteria(List.of(criterion));
         qa.getQuestion().setRubric(rubric);
 
-        when(questionAttempts.findById(qa.getId())).thenReturn(Optional.of(qa));
+        when(questionAttempts.findLockedById(qa.getId())).thenReturn(Optional.of(qa));
         when(evaluations.findByQuestionAttemptId(qa.getId())).thenReturn(Optional.empty());
         when(access.requireManager(eq(actor), any())).thenReturn(new User());
 

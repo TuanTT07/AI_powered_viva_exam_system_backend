@@ -8,6 +8,8 @@ import cocxanhcoder.viva.exam.system.grading.dto.FinalizeEvaluationRequest;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
 import cocxanhcoder.viva.exam.system.grading.service.EvaluationService;
 import jakarta.validation.Valid;
+import cocxanhcoder.viva.exam.system.grading.dto.StudentResult;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +43,19 @@ public class EvaluationController {
                                                                           @PathVariable UUID questionAttemptId) {
         return ApiResponse.ok("Lấy kết quả chấm điểm thành công",
                 evaluationService.getByQuestionAttempt(actor(jwt), questionAttemptId));
+    }
+
+    @PutMapping("/api/question-attempts/{questionAttemptId}/evaluation/publish")
+    public ResponseEntity<ApiResponse<Void>> publish(@AuthenticationPrincipal Jwt jwt,
+                                                                   @PathVariable UUID questionAttemptId) {
+        evaluationService.publish(actor(jwt), questionAttemptId);
+        return ApiResponse.ok("Đã công bố điểm");
+    }
+
+    @GetMapping("/api/v1/student/exams/{attemptId}/results")
+    public ResponseEntity<ApiResponse<List<StudentResult>>> publishedResults(@AuthenticationPrincipal Jwt jwt,
+                                                                              @PathVariable UUID attemptId) {
+        return ApiResponse.ok("Kết quả đã công bố", evaluationService.publishedResults(actor(jwt), attemptId));
     }
 
     @PutMapping("/api/question-attempts/{questionAttemptId}/evaluation/final")

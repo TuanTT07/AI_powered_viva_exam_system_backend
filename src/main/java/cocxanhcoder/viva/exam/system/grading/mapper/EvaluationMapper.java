@@ -60,7 +60,8 @@ public class EvaluationMapper {
                 ea != null ? ea.getId() : null,
                 student != null ? student.getId() : null,
                 student != null ? student.getFullName() : null,
-                student != null ? student.getUserCode() : null);
+                student != null ? student.getUserCode() : null,
+                evaluation.getPublishedAt());
     }
 
     public EvaluationResponse toDraftResponse(QuestionAttempt qa, List<TranscriptTurn> turns, Rubric rubric) {
@@ -97,6 +98,7 @@ public class EvaluationMapper {
                 ea != null ? ea.getId() : null,
                 student != null ? student.getId() : null,
                 student != null ? student.getFullName() : null,
-                student != null ? student.getUserCode() : null);
+                student != null ? student.getUserCode() : null,
+                null);
     }
 }

@@ -229,6 +229,37 @@ class InterviewPostgresTest {
                 .andExpect(jsonPath("$.data").isEmpty());
     }
 
+    @Test
+    void studentSeesOnlyPublishedFinalScoresForOwnAttempt() throws Exception {
+        seed(1, 0);
+        db.update("update users set role_id = (select id from roles where role_name = 'LECTURER') where id = ?",
+                otherStudent);
+        db.update("insert into course_lecturers (course_id, lecturer_id) values (?, ?)", course, otherStudent);
+        UUID questionAttempt = db.queryForObject("select id from question_attempts where exam_attempt_id = ?",
+                UUID.class, attempt);
+        db.update("insert into evaluations (question_attempt_id, status) values (?, 'PENDING_REVIEW')",
+                questionAttempt);
+        var owner = jwt().jwt(token -> token.subject(student.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+        var lecturer = jwt().jwt(token -> token.subject(otherStudent.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_LECTURER"));
+        String results = "/api/v1/student/exams/" + attempt + "/results";
+        String publish = "/api/question-attempts/" + questionAttempt + "/evaluation/publish";
+        mvc.perform(put(publish).with(lecturer)).andExpect(status().isConflict());
+        db.update("update evaluations set status = 'GRADED', final_score = 8.5 where question_attempt_id = ?",
+                questionAttempt);
+        mvc.perform(get(results).with(owner)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+        mvc.perform(put(publish).with(lecturer)).andExpect(status().isOk());
+        mvc.perform(get(results).with(owner)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].finalScore").value(8.5))
+                .andExpect(jsonPath("$.data[0].aiSuggestedScore").doesNotExist());
+        var unrelated = jwt().jwt(token -> token.subject(UUID.randomUUID().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+        mvc.perform(get(results).with(unrelated)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
     private void awaitCompleted() {
         await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(Status.COMPLETED, flow.current(student, attempt).status()));

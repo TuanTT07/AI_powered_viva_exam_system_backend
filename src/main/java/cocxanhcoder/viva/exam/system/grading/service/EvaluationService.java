@@ -23,6 +23,8 @@ import cocxanhcoder.viva.exam.system.questionbank.entity.RubricCriterion;
 import cocxanhcoder.viva.exam.system.questionbank.service.AiClient;
 import cocxanhcoder.viva.exam.system.questionbank.service.CourseAccessService;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import cocxanhcoder.viva.exam.system.grading.dto.StudentResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +64,7 @@ public class EvaluationService {
     /** Giảng viên/Admin yêu cầu AI chấm điểm 1 câu trả lời dựa trên transcript + rubric của câu hỏi. */
     @Transactional
     public EvaluationResponse gradeWithAi(UUID actorId, UUID id) {
-        QuestionAttempt attempt = findAttempt(id);
+        QuestionAttempt attempt = lockQuestionAttempt(id);
         courseAccess.requireManager(actorId, courseIdOf(attempt));
         UUID questionAttemptId = attempt.getId();
 
@@ -144,7 +146,7 @@ public class EvaluationService {
     /** Giảng viên điều chỉnh điểm từng tiêu chí (từ gợi ý AI) và chốt điểm cuối. */
     @Transactional
     public EvaluationResponse finalizeEvaluation(UUID actorId, UUID id, FinalizeEvaluationRequest request) {
-        QuestionAttempt attempt = findAttempt(id);
+        QuestionAttempt attempt = lockQuestionAttempt(id);
         User actor = courseAccess.requireManager(actorId, courseIdOf(attempt));
         UUID questionAttemptId = attempt.getId();
 
@@ -153,6 +155,9 @@ public class EvaluationService {
         List<RubricCriterion> rubricCriteria = rubric != null && rubric.getCriteria() != null
                 ? rubric.getCriteria()
                 : List.of();
+
+        if (evaluation != null && evaluation.getPublishedAt() != null)
+            throw new BusinessException(HttpStatus.CONFLICT, "Điểm đã được công bố");
 
         Map<UUID, CriterionFinalScoreRequest> byId = request.criteria().stream()
                 .collect(Collectors.toMap(CriterionFinalScoreRequest::criterionId, c -> c));
@@ -204,6 +209,28 @@ public class EvaluationService {
         evaluation.setStatus(EvaluationStatus.GRADED);
 
         return mapper.toResponse(evaluations.save(evaluation));
+    }
+
+    @Transactional
+    public void publish(UUID actorId, UUID questionAttemptId) {
+        QuestionAttempt attempt = lockQuestionAttempt(questionAttemptId);
+        courseAccess.requireManager(actorId, courseIdOf(attempt));
+        Evaluation evaluation = evaluations.findByQuestionAttemptId(attempt.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Chưa có kết quả chấm điểm"));
+        if (evaluation.getStatus() != EvaluationStatus.GRADED || evaluation.getFinalScore() == null)
+            throw new BusinessException(HttpStatus.CONFLICT, "Cần chốt điểm trước khi công bố");
+        if (evaluation.getPublishedAt() == null) evaluation.setPublishedAt(OffsetDateTime.now());
+    }
+
+    public List<StudentResult> publishedResults(UUID studentId, UUID attemptId) {
+        return evaluations.findPublishedResults(studentId, attemptId);
+    }
+
+    private QuestionAttempt lockQuestionAttempt(UUID id) {
+        return questionAttempts.findLockedById(id)
+                .or(() -> questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(id).stream()
+                        .findFirst().flatMap(question -> questionAttempts.findLockedById(question.getId())))
+                .orElseThrow(() -> new ResourceNotFoundException("Lượt hỏi", id));
     }
 
     public PageResponse<EvaluationResponse> findByCourse(UUID actorId, UUID courseId, EvaluationStatus status, Pageable pageable) {

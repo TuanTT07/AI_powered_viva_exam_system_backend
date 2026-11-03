@@ -73,6 +73,9 @@ public class Evaluation {
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "published_at")
+    private OffsetDateTime publishedAt;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

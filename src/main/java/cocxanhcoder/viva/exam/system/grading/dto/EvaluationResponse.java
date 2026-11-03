@@ -27,7 +27,8 @@ public record EvaluationResponse(
         UUID examAttemptId,
         UUID studentId,
         String studentName,
-        String studentCode
+        String studentCode,
+        OffsetDateTime publishedAt
 ) {
     public EvaluationResponse(
             UUID id, UUID questionAttemptId, UUID questionId, String questionContent,
@@ -37,6 +38,6 @@ public record EvaluationResponse(
             String audioUrl, OffsetDateTime updatedAt) {
         this(id, questionAttemptId, questionId, questionContent, gradedById, gradedByName,
                 aiSuggestedScore, finalScore, maxScore, overallFeedback, criteria, status,
-                createdAt, transcript, audioUrl, updatedAt, null, null, null, null);
+                createdAt, transcript, audioUrl, updatedAt, null, null, null, null, null);
     }
 }
