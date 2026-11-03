@@ -184,6 +184,27 @@ class InterviewPostgresTest {
                 .andExpect(jsonPath("$.data.prompt.deadlineAt").exists());
     }
 
+    @Test
+    void studentScheduleUsesJwtForListAndLegacySlotLookup() throws Exception {
+        seed(1, 0);
+        String path = "/api/v1/student/exams";
+        var owner = jwt().jwt(token -> token.subject(student.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+        var other = jwt().jwt(token -> token.subject(otherStudent.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+        mvc.perform(get(path).with(owner).param("studentId", otherStudent.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].attemptId").value(attempt.toString()))
+                .andExpect(jsonPath("$.content[0].questions").doesNotExist());
+        mvc.perform(get(path).with(owner).param("status", "COMPLETED"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(get(path).with(other).param("studentId", student.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(get(path + "/" + exam + "/my-slot").with(other).param("studentId", student.toString()))
+                .andExpect(status().isNotFound());
+    }
+
     private void awaitCompleted() {
         await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(Status.COMPLETED, flow.current(student, attempt).status()));

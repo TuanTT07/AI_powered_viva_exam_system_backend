@@ -2,6 +2,9 @@ package cocxanhcoder.viva.exam.system.exammgt.repository;
 
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttempt;
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttemptStatus;
+import cocxanhcoder.viva.exam.system.exammgt.dto.response.StudentExamSummary;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
@@ -26,6 +29,20 @@ public interface ExamAttemptRepository extends JpaRepository<ExamAttempt, UUID> 
     List<ExamAttempt> findByExamIdOrderBySlotNumberAsc(UUID examId);
 
     List<ExamAttempt> findByStudentIdOrderByScheduledStartTimeDesc(UUID studentId);
+
+    @Query(value = """
+        select new cocxanhcoder.viva.exam.system.exammgt.dto.response.StudentExamSummary(
+            e.id, a.id, e.title, c.courseCode, c.courseName, a.slotNumber,
+            a.scheduledStartTime, a.scheduledEndTime, a.status)
+        from ExamAttempt a join a.exam e join e.course c
+        where a.student.id = :studentId and (:status is null or a.status = :status)
+        order by a.scheduledStartTime desc nulls last, a.id asc
+        """, countQuery = """
+        select count(a) from ExamAttempt a
+        where a.student.id = :studentId and (:status is null or a.status = :status)
+        """)
+    Page<StudentExamSummary> findStudentExams(@Param("studentId") UUID studentId,
+            @Param("status") ExamAttemptStatus status, Pageable pageable);
 
     Optional<ExamAttempt> findByExamIdAndStudentId(UUID examId, UUID studentId);
 

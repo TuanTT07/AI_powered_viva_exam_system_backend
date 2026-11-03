@@ -113,3 +113,20 @@ Bộ Unit tests đã được viết và chạy thành công 100%:
    ```
 4. Truy cập Swagger UI:
    `http://localhost:8080/swagger-ui.html`
+
+## API lịch thi cá nhân cho FE
+
+`GET /api/v1/student/exams?page=0&size=20&status=READY` dùng JWT STUDENT.
+`status` là bộ lọc tùy chọn theo trạng thái ca thi. Bỏ qua để xem tất cả.
+`page` bắt đầu từ 0, `size` mặc định 20 và tối đa 100. Xếp theo giờ bắt đầu
+giảm dần, ca chưa có giờ nằm cuối.
+
+Response HTTP 200 trả trực tiếp `{ content, page, size, totalElements, totalPages }`.
+Mỗi phần tử có `examId`, `attemptId`, `examTitle`, `courseCode`, `courseName`,
+`slotNumber`, `scheduledStartTime`, `scheduledEndTime` và `status`.
+Ca chưa xếp giờ có thể trả giờ và số ca là null. Sinh viên chưa được phân ca
+nhận `content: []`. Dùng `attemptId` để gọi API start/current của phòng thi.
+
+Chi tiết ca dùng `GET /api/v1/student/exams/{examId}/my-slot` với cùng JWT.
+Bỏ tham số `studentId` khỏi FE. Backend luôn tra theo chủ JWT, kể cả khi
+client cũ còn gửi tham số này. Kỳ thi không có ca của sinh viên trả HTTP 404.
