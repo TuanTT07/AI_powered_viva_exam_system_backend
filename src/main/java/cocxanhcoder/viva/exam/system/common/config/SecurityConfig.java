@@ -70,6 +70,7 @@ public class SecurityConfig {
                                 "/api/interviews/**", "/api/interview/attempts/*/speech-ticket",
                                 "/api/interview/attempts/*/speech/**", "/api/interview/speech/**")
                                 .hasRole("STUDENT")
+                        .requestMatchers("/api/lecturers/courses/*/students").hasRole("LECTURER")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // Bật kiểm tra JWT trong header Authorization

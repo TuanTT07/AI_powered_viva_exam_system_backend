@@ -205,6 +205,30 @@ class InterviewPostgresTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void courseRosterIsLimitedToEnrolledStudentsAndAssignedLecturers() throws Exception {
+        seed(1, 0);
+        db.update("update users set role_id = (select id from roles where role_name = 'LECTURER') where id = ?",
+                otherStudent);
+        var lecturer = jwt().jwt(token -> token.subject(otherStudent.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_LECTURER"));
+        var admin = jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        String path = "/api/lecturers/courses/" + course + "/students";
+        String enrollment = "/api/admin/courses/" + course + "/students/" + student;
+        mvc.perform(get(path).with(lecturer)).andExpect(status().isForbidden());
+        db.update("insert into course_lecturers (course_id, lecturer_id) values (?, ?)", course, otherStudent);
+        mvc.perform(get(path).with(lecturer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+        mvc.perform(put(enrollment).with(admin)).andExpect(status().isOk());
+        mvc.perform(put(enrollment).with(admin)).andExpect(status().isOk());
+        mvc.perform(get(path).with(lecturer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].id").value(student.toString()));
+        mvc.perform(delete(enrollment).with(admin)).andExpect(status().isOk());
+        mvc.perform(get(path).with(lecturer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
     private void awaitCompleted() {
         await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(Status.COMPLETED, flow.current(student, attempt).status()));

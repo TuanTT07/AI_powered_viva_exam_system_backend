@@ -5,6 +5,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import cocxanhcoder.viva.exam.system.academic.entity.User;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +15,28 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CourseRepository extends JpaRepository<Course, UUID> {
+
+    @Query(value = """
+            SELECT u.* FROM course_students cs
+            JOIN users u ON u.id = cs.student_id
+            JOIN roles r ON r.id = u.role_id
+            WHERE cs.course_id = :courseId AND r.role_name = 'STUDENT'
+            ORDER BY u.user_code, u.id
+            """, nativeQuery = true)
+    List<User> findStudents(@Param("courseId") UUID courseId);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO course_students (course_id, student_id)
+            VALUES (:courseId, :studentId)
+            ON CONFLICT (course_id, student_id) DO NOTHING
+            """, nativeQuery = true)
+    void enrollStudent(@Param("courseId") UUID courseId, @Param("studentId") UUID studentId);
+
+    @Modifying
+    @Query(value = "DELETE FROM course_students WHERE course_id = :courseId AND student_id = :studentId",
+            nativeQuery = true)
+    void unenrollStudent(@Param("courseId") UUID courseId, @Param("studentId") UUID studentId);
 
     boolean existsByCourseCode(String courseCode);
 

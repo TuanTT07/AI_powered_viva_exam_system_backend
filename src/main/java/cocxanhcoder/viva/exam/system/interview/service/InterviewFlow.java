@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -135,7 +136,7 @@ public class InterviewFlow {
 
     private void open(ExamAttempt attempt, QuestionAttempt question) {
         question.setStatus(QuestionAttemptStatus.IN_PROGRESS);
-        question.setStartTime(OffsetDateTime.now());
+        question.setStartTime(OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS));
         transcripts.recordQuestion(attempt.getStudent().getId(), attempt.getId(), question.getId(),
                 question.getQuestion().getContent(), TurnType.MAIN_QUESTION);
     }

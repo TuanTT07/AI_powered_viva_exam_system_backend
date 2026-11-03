@@ -1,6 +1,9 @@
 package cocxanhcoder.viva.exam.system.academic.controller;
 
 import cocxanhcoder.viva.exam.system.academic.dto.CourseResponse;
+import cocxanhcoder.viva.exam.system.academic.dto.CourseStudentResponse;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import cocxanhcoder.viva.exam.system.academic.service.CourseService;
 import cocxanhcoder.viva.exam.system.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +30,14 @@ public class LecturerCourseController {
 
     public LecturerCourseController(CourseService courseService) {
         this.courseService = courseService;
+    }
+
+    @GetMapping("/courses/{courseId}/students")
+    @Operation(summary = "Danh sách sinh viên ghi danh trong môn giảng viên phụ trách")
+    public ResponseEntity<ApiResponse<List<CourseStudentResponse>>> getStudents(
+            @PathVariable UUID courseId, @AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.ok("Lấy danh sách sinh viên thành công",
+                courseService.getStudentsOfCourse(UUID.fromString(jwt.getSubject()), courseId));
     }
 
     /** GET /api/lecturers/{lecturerId}/courses */

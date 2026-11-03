@@ -110,6 +110,20 @@ public class AdminCourseController {
                 courseService.assignLecturer(courseId, lecturerId));
     }
 
+    @PutMapping("/{courseId}/students/{studentId}")
+    @Operation(summary = "Ghi danh sinh viên vào môn")
+    public ResponseEntity<ApiResponse<Void>> enrollStudent(@PathVariable UUID courseId, @PathVariable UUID studentId) {
+        courseService.enrollStudent(courseId, studentId);
+        return ApiResponse.ok("Ghi danh sinh viên thành công");
+    }
+
+    @DeleteMapping("/{courseId}/students/{studentId}")
+    @Operation(summary = "Gỡ ghi danh sinh viên khỏi môn")
+    public ResponseEntity<ApiResponse<Void>> unenrollStudent(@PathVariable UUID courseId, @PathVariable UUID studentId) {
+        courseService.unenrollStudent(courseId, studentId);
+        return ApiResponse.ok("Gỡ ghi danh sinh viên thành công");
+    }
+
     @DeleteMapping("/{courseId}/lecturers/{lecturerId}")
     @Operation(summary = "Gỡ giảng viên khỏi môn")
     public ResponseEntity<ApiResponse<Void>> unassignLecturer(@PathVariable UUID courseId,
