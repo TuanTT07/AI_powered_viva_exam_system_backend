@@ -177,6 +177,21 @@ public class OpenAiAiClient implements AiClient {
         return parseGradingResult(extractOutputText(response), criteria);
     }
 
+    @Override
+    public String suggestFollowUp(String context) {
+        requireConfig();
+        var payload = Map.of("model", model, "instructions", FOLLOW_UP_INSTRUCTIONS,
+                "input", context, "max_output_tokens", maxOutputTokens,
+                "text", Map.of("format", Map.of("type", "json_object")));
+        var result = request("/responses", payload, null);
+        if (!"completed".equals(result.path("status").asText())) return null;
+        try {
+            return mapper.readTree(extractOutputText(result)).path("question").textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return null;
+        }
+    }
+
     private GradingResult parseGradingResult(String text, List<CriterionInput> criteria) {
         try {
             JsonNode root = mapper.readTree(text);

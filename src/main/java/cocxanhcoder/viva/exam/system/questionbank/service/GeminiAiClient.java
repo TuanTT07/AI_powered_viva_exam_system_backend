@@ -210,6 +210,22 @@ public class GeminiAiClient implements AiClient {
         return parseGradingResult(text, criteria);
     }
 
+    @Override
+    public String suggestFollowUp(String context) {
+        requireConfig();
+        var body = Map.of(
+                "systemInstruction", Map.of("parts", List.of(Map.of("text", FOLLOW_UP_INSTRUCTIONS))),
+                "contents", List.of(Map.of("parts", List.of(Map.of("text", context)))),
+                "generationConfig", Map.of("responseMimeType", "application/json"));
+        var result = post("/models/" + model + ":generateContent", body);
+        String text = result.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText();
+        try {
+            return mapper.readTree(text).path("question").textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return null;
+        }
+    }
+
     private GradingResult parseGradingResult(String text, List<CriterionInput> criteria) {
         try {
             JsonNode root = mapper.readTree(text);

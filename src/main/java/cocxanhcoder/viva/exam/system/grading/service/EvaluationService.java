@@ -70,7 +70,8 @@ public class EvaluationService {
         if (rubric == null || rubric.getCriteria().isEmpty())
             throw new BusinessException(HttpStatus.CONFLICT, "Câu hỏi chưa gắn rubric, không thể chấm điểm AI");
 
-        List<TranscriptTurn> turns = transcriptTurns.findByQuestionAttemptIdOrderByTurnOrderAsc(questionAttemptId);
+        List<TranscriptTurn> turns = transcriptTurns.findByQuestionAttemptIdOrderByTurnOrderAsc(questionAttemptId)
+                .stream().filter(turn -> turn.belongsToCurrentRun(attempt)).toList();
         if (turns.isEmpty())
             throw new BusinessException(HttpStatus.CONFLICT, "Chưa có transcript để chấm điểm");
 

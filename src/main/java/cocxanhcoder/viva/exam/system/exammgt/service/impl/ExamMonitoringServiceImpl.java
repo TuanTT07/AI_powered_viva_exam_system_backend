@@ -61,7 +61,7 @@ public class ExamMonitoringServiceImpl implements ExamMonitoringService {
 
     @Override
     public CandidateScheduleResponse resetAttempt(UUID examId, UUID attemptId) {
-        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+        ExamAttempt attempt = examAttemptRepository.findLockedById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca thi với ID: " + attemptId));
 
         attempt.setStatus(ExamAttemptStatus.READY);
@@ -80,7 +80,7 @@ public class ExamMonitoringServiceImpl implements ExamMonitoringService {
 
     @Override
     public CandidateScheduleResponse markAbsent(UUID examId, UUID attemptId) {
-        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+        ExamAttempt attempt = examAttemptRepository.findLockedById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca thi với ID: " + attemptId));
 
         attempt.setStatus(ExamAttemptStatus.ABSENT);

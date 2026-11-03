@@ -102,7 +102,7 @@ public class SpeechSessionService {
             if (c.state == State.COMPLETED) send(c, "answer.finalized", event.requestId(), c.answer, c.saved);
             else if (c.state == State.STREAMING)
                 send(c, "answer.started", event.requestId(), c.answer, Map.of("questionTurnId", c.prompt,
-                        "deadline", c.started.plusSeconds(c.limitSeconds).toString()));
+                        "deadline", c.deadline.toString()));
             else if (c.state == State.FINALIZING)
                 send(c, "answer.finalizing", event.requestId(), c.answer, Map.of());
             else error(c, event.requestId(), "ANSWER_FAILED", "Lượt trả lời đã lỗi; dùng requestId mới nếu được phép thu lại", true);
@@ -118,6 +118,10 @@ public class SpeechSessionService {
         }
         properties.requireConfigured();
         var prompt = access.requirePrompt(c.grant.studentId(), c.grant.attemptId(), event.questionTurnId());
+        if (prompt.deadlineAt() != null && !Instant.now().isBefore(prompt.deadlineAt())) {
+            error(c, event.requestId(), "ANSWER_DEADLINE_REACHED", "Lượt hỏi đã hết thời gian", false);
+            return;
+        }
         if (!capacity.tryAcquire()) {
             error(c, event.requestId(), "STT_BUSY", "Dịch vụ STT đang bận, vui lòng thử lại", true); return;
         }
@@ -164,10 +168,13 @@ public class SpeechSessionService {
                 }
             });
             c.started = Instant.now();
+            c.deadline = c.started.plusSeconds(c.limitSeconds);
+            if (prompt.deadlineAt() != null && prompt.deadlineAt().isBefore(c.deadline))
+                c.deadline = prompt.deadlineAt();
             c.lastActivity = c.started;
             c.state = State.STREAMING;
             send(c, "answer.started", event.requestId(), answer, Map.of("questionTurnId", c.prompt,
-                    "deadline", c.started.plusSeconds(c.limitSeconds).toString()));
+                    "deadline", c.deadline.toString()));
         } catch (Exception | LinkageError e) {
             lease.close();
             c.lease = null;
@@ -187,7 +194,7 @@ public class SpeechSessionService {
             if (pcm.length == 0 || pcm.length > 32768 || pcm.length % 2 != 0) {
                 fail(c, "INVALID_AUDIO", "Kích thước audio không hợp lệ", false); return;
             }
-            if (Duration.between(c.started, Instant.now()).getSeconds() >= c.limitSeconds) {
+            if (!Instant.now().isBefore(c.deadline)) {
                 finalizeAnswer(c, null); return;
             }
             long elapsedBytes = (Duration.between(c.started, Instant.now()).toMillis() + 2000) * 32;
@@ -282,7 +289,7 @@ public class SpeechSessionService {
                             c.lastCheck = now;
                         }
                         if (c.state == State.STREAMING
-                                && Duration.between(c.started, now).getSeconds() >= c.limitSeconds)
+                                && !now.isBefore(c.deadline))
                             finalizeAnswer(c, null);
                         else if (c.state != State.FINALIZING
                                 && Duration.between(c.lastActivity, now).getSeconds() >= properties.getIdleTimeoutSeconds())
@@ -368,6 +375,7 @@ public class SpeechSessionService {
         Instant started, lastActivity = Instant.now(), lastCheck = Instant.now();
         long bytes;
         int limitSeconds;
+        Instant deadline;
         Lease lease;
         AnswerReceipt saved;
         Connection(WebSocketSession socket, SpeechTicketService.Grant grant) {

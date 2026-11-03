@@ -1,4 +1,31 @@
 # Bàn giao chức năng 3 và 4 cho nhóm
+## API phòng thi BE1 hiện có
+
+Các mục bàn giao bên dưới ghi lại trạng thái lúc BE2 chuyển giao. FE1 tích hợp với hai
+API đã triển khai sau đây, dùng JWT STUDENT của chủ lượt thi.
+
+| API | Hành vi |
+|---|---|
+| `POST /api/interviews/{attemptId}/start` | Bắt đầu lượt thi READY với bộ câu đã giao. Gọi lại để lấy trạng thái hiện hành. |
+| `GET /api/interviews/{attemptId}/current` | Đọc trạng thái khi mở phòng thi, tải lại trang hoặc nối lại sau lỗi. |
+
+`data.status` là `READY`, `AWAITING_ANSWER`, `PROCESSING` hoặc `COMPLETED`.
+Khi `AWAITING_ANSWER`, `data.prompt` chứa `questionAttemptId`, `questionTurnId`,
+`text` và `deadlineAt` (UTC, ISO 8601). Dùng `questionTurnId` với playback và
+WebSocket speech. Khi bắt đầu thu âm, speech có thể trả deadline sớm hơn theo
+giới hạn STT. FE dùng deadline sớm hơn trong lúc thu.
+
+Sau `answer.finalized` hoặc hết giờ, gọi `current` mỗi giây trong khi trạng thái
+là `PROCESSING`. Dừng polling khi nhận câu mới hoặc `COMPLETED`. Sau khi mất
+kết nối, gọi `current` trước khi mở lại stream. BE1 giữ nguyên deadline của
+câu hiện hành, kể cả khi sinh viên tải lại trang.
+
+BE1 dùng cấu hình `timeLimitPerTurnSeconds` và `maxFollowUpQuestions`. Nếu quá
+deadline 10 giây mà speech chưa lưu câu trả lời, hệ thống ghi nhận hết giờ trên
+lượt hỏi và chuyển câu chính. Khi AI lỗi hoặc quá 10 giây, hệ thống chuyển câu.
+Để chạy test tích hợp, trỏ datasource đến PostgreSQL thử nghiệm rồi chạy
+`./mvnw.cmd '-Dinterview.pg.test=true' test`.
+
 
 Tài liệu này mô tả code hiện có và phần cần làm tiếp. Các mục **đề xuất/chưa có**
 không phải API hoặc chức năng đã triển khai. Ưu tiên hoàn thiện chức năng 3 trước.
