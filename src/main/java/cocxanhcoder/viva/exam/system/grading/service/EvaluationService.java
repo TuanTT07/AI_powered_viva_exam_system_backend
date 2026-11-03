@@ -5,6 +5,7 @@ import cocxanhcoder.viva.exam.system.common.dto.PageResponse;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
 import cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttempt;
+import cocxanhcoder.viva.exam.system.exammgt.repository.ExamRepository;
 import cocxanhcoder.viva.exam.system.exammgt.repository.QuestionAttemptRepository;
 import cocxanhcoder.viva.exam.system.grading.dto.CriterionFinalScoreRequest;
 import cocxanhcoder.viva.exam.system.grading.dto.EvaluationResponse;
@@ -21,23 +22,23 @@ import cocxanhcoder.viva.exam.system.questionbank.entity.Rubric;
 import cocxanhcoder.viva.exam.system.questionbank.entity.RubricCriterion;
 import cocxanhcoder.viva.exam.system.questionbank.service.AiClient;
 import cocxanhcoder.viva.exam.system.questionbank.service.CourseAccessService;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Chấm điểm AI (CN4): chấm transcript theo rubric, giảng viên xem/điều chỉnh/chốt điểm cuối. */
 @Service
 @Transactional(readOnly = true)
 public class EvaluationService {
 
+    private final ExamRepository exams;
     private final EvaluationRepository evaluations;
     private final QuestionAttemptRepository questionAttempts;
     private final TranscriptTurnRepository transcriptTurns;
@@ -47,7 +48,9 @@ public class EvaluationService {
 
     public EvaluationService(EvaluationRepository evaluations, QuestionAttemptRepository questionAttempts,
                               TranscriptTurnRepository transcriptTurns, AiClient ai,
-                              CourseAccessService courseAccess, EvaluationMapper mapper) {
+                              CourseAccessService courseAccess, EvaluationMapper mapper,
+                              ExamRepository exams) {
+        this.exams = exams;
         this.evaluations = evaluations;
         this.questionAttempts = questionAttempts;
         this.transcriptTurns = transcriptTurns;
@@ -163,6 +166,16 @@ public class EvaluationService {
         var page = status == null
                 ? evaluations.findByQuestionAttempt_ExamAttempt_Exam_Course_Id(courseId, pageable)
                 : evaluations.findByQuestionAttempt_ExamAttempt_Exam_Course_IdAndStatus(courseId, status, pageable);
+        return PageResponse.from(page.map(mapper::toResponse));
+    }
+
+    public PageResponse<EvaluationResponse> findByExam(UUID actorId, UUID examId, EvaluationStatus status, Pageable pageable) {
+        var exam = exams.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam", examId));
+        courseAccess.requireManager(actorId, exam.getCourse().getId());
+        var page = status == null
+                ? evaluations.findByQuestionAttempt_ExamAttempt_Exam_Id(examId, pageable)
+                : evaluations.findByQuestionAttempt_ExamAttempt_Exam_IdAndStatus(examId, status, pageable);
         return PageResponse.from(page.map(mapper::toResponse));
     }
 

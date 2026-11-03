@@ -2,16 +2,20 @@ package cocxanhcoder.viva.exam.system.grading.repository;
 
 import cocxanhcoder.viva.exam.system.grading.entity.Evaluation;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
-import java.util.UUID;
-
 public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     Optional<Evaluation> findByQuestionAttemptId(UUID questionAttemptId);
+
+    Page<Evaluation> findByQuestionAttempt_ExamAttempt_Exam_Id(UUID examId, Pageable pageable);
+
+    Page<Evaluation> findByQuestionAttempt_ExamAttempt_Exam_IdAndStatus(
+            UUID examId, EvaluationStatus status, Pageable pageable);
 
     boolean existsByQuestionAttemptId(UUID questionAttemptId);
 

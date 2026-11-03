@@ -2,7 +2,6 @@ package cocxanhcoder.viva.exam.system.grading.dto;
 
 import cocxanhcoder.viva.exam.system.grading.entity.CriterionScore;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -22,6 +21,8 @@ public record EvaluationResponse(
         List<CriterionScore> criteria,
         EvaluationStatus status,
         OffsetDateTime createdAt,
+        List<TranscriptTurnResponse> transcript,
+        String audioUrl,
         OffsetDateTime updatedAt
 ) {
 }

@@ -13,17 +13,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Entity đại diện cho Kỳ thi vấn đáp (Exam Session).
@@ -63,6 +62,9 @@ public class Exam {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "exam_config", columnDefinition = "jsonb")
     private Map<String, Object> examConfig = new HashMap<>();
+
+    @org.hibernate.annotations.Formula("(select count(distinct ea.student_id) from exam_attempts ea where ea.exam_id = id)")
+    private long totalCandidates;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -44,6 +44,9 @@ class ExamServiceImplTest {
     @Mock
     private ExamAttemptRepository examAttemptRepository;
 
+    @Mock private cocxanhcoder.viva.exam.system.questionbank.repository.QuestionRepository questionRepository;
+    @Mock private cocxanhcoder.viva.exam.system.questionbank.service.CourseAccessService courseAccess;
+
     @InjectMocks
     private ExamServiceImpl examService;
 
@@ -103,5 +106,54 @@ class ExamServiceImplTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> examService.createExam(request));
+    }
+
+    @Test
+    void questionConfigRoundTripPreservesOtherSettings() {
+        UUID actor = UUID.randomUUID();
+        Exam exam = new Exam();
+        exam.setId(UUID.randomUUID());
+        exam.setCourse(course);
+        exam.setExamConfig(new java.util.HashMap<>(Map.of("maxMainQuestions", 4, "antiOverlapEnabled", false)));
+        var question = new cocxanhcoder.viva.exam.system.questionbank.entity.Question();
+        question.setId(UUID.randomUUID());
+        question.setCourse(course);
+        question.setStatus(cocxanhcoder.viva.exam.system.questionbank.entity.QuestionStatus.APPROVED);
+        var request = new cocxanhcoder.viva.exam.system.exammgt.dto.request.QuestionConfigDto(java.util.List.of(question.getId()), 90, 3);
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(questionRepository.findAllById(request.questionIds())).thenReturn(java.util.List.of(question));
+        assertEquals(request, examService.updateQuestionConfig(actor, exam.getId(), request));
+        assertEquals(request, examService.getQuestionConfig(actor, exam.getId()));
+        assertEquals(4, exam.getExamConfig().get("maxMainQuestions"));
+        assertEquals(false, exam.getExamConfig().get("antiOverlapEnabled"));
+        verify(courseAccess, org.mockito.Mockito.times(2)).requireManager(actor, courseId);
+    }
+
+    @Test
+    void questionConfigRejectsQuestionFromAnotherCourse() {
+        Exam exam = new Exam();
+        exam.setId(UUID.randomUUID());
+        exam.setCourse(course);
+        var question = new cocxanhcoder.viva.exam.system.questionbank.entity.Question();
+        question.setId(UUID.randomUUID());
+        Course other = new Course();
+        other.setId(UUID.randomUUID());
+        question.setCourse(other);
+        question.setStatus(cocxanhcoder.viva.exam.system.questionbank.entity.QuestionStatus.APPROVED);
+        var request = new cocxanhcoder.viva.exam.system.exammgt.dto.request.QuestionConfigDto(java.util.List.of(question.getId()), 60, 2);
+        when(examRepository.findById(exam.getId())).thenReturn(Optional.of(exam));
+        when(questionRepository.findAllById(request.questionIds())).thenReturn(java.util.List.of(question));
+        assertThrows(BusinessException.class, () -> examService.updateQuestionConfig(UUID.randomUUID(), exam.getId(), request));
+        org.mockito.Mockito.verify(examRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void examListIncludesCandidateCount() {
+        Exam exam = new Exam();
+        exam.setCourse(course);
+        exam.setTotalCandidates(12);
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(examRepository.searchExams(null, null, pageable)).thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(exam)));
+        assertEquals(12, examService.getExams(null, null, pageable).getContent().getFirst().totalCandidates());
     }
 }

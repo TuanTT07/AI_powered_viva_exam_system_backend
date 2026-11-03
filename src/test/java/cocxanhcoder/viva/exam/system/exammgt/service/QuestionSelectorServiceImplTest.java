@@ -111,4 +111,14 @@ class QuestionSelectorServiceImplTest {
 
         assertThrows(BusinessException.class, () -> questionSelectorService.generateQuestionsForAttempt(attempt));
     }
+
+    @Test
+    void configuredPoolIsUsedEvenWhenAntiOverlapFallsBack() {
+        exam.getExamConfig().put("questionIds", List.of(q2.getId().toString()));
+        when(questionRepository.findByCourseIdAndStatus(course.getId(), QuestionStatus.APPROVED))
+                .thenReturn(List.of(q1, q2, q3));
+        when(examAttemptRepository.findRecentUsedQuestionIds(exam.getId(), 1, 1)).thenReturn(List.of(q2.getId()));
+        var results = questionSelectorService.generateQuestionsForAttempt(attempt);
+        assertEquals(List.of(q2.getId()), results.stream().map(q -> q.getQuestion().getId()).toList());
+    }
 }

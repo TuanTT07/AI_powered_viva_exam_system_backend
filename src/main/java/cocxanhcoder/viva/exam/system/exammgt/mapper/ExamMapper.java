@@ -5,10 +5,10 @@ import cocxanhcoder.viva.exam.system.exammgt.dto.response.CandidateScheduleRespo
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.ExamDetailResponse;
 import cocxanhcoder.viva.exam.system.exammgt.dto.response.ExamResponse;
 import cocxanhcoder.viva.exam.system.exammgt.entity.Exam;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public final class ExamMapper {
 
@@ -27,6 +27,7 @@ public final class ExamMapper {
             exam.getEndTime(),
             exam.getStatus(),
             parseConfig(exam.getExamConfig()),
+            exam.getTotalCandidates(),
             exam.getCreatedAt()
         );
     }
@@ -48,6 +49,11 @@ public final class ExamMapper {
             candidates != null ? candidates.size() : 0,
             candidates != null ? candidates : List.of()
         );
+    }
+
+    public static List<UUID> questionIds(Map<String, Object> map) {
+        if (map == null || !(map.get("questionIds") instanceof List<?> ids)) return List.of();
+        return ids.stream().map(id -> UUID.fromString(id.toString())).toList();
     }
 
     public static ExamConfigDto parseConfig(Map<String, Object> map) {
