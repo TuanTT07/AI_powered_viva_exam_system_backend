@@ -3,6 +3,7 @@ package cocxanhcoder.viva.exam.system.academic.service;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseDetailResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseRequest;
 import cocxanhcoder.viva.exam.system.academic.dto.CourseResponse;
+import cocxanhcoder.viva.exam.system.academic.dto.CourseStudentResponse;
 import cocxanhcoder.viva.exam.system.academic.dto.LecturerResponse;
 import cocxanhcoder.viva.exam.system.academic.entity.Course;
 import cocxanhcoder.viva.exam.system.academic.entity.Role;
@@ -124,6 +125,34 @@ public class CourseService {
     }
 
     // ===================== HÀM PHỤ =====================
+
+    public List<CourseStudentResponse> getStudentsOfCourse(UUID lecturerId, UUID courseId) {
+        findCourse(courseId);
+        if (!courseRepository.existsByLecturers_IdAndId(lecturerId, courseId)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "Bạn không được phân công môn học này");
+        }
+        return courseRepository.findStudents(courseId).stream()
+                .map(student -> new CourseStudentResponse(student.getId(), student.getUserCode(),
+                        student.getFullName(), student.getEmail()))
+                .toList();
+    }
+
+    @Transactional
+    public void enrollStudent(UUID courseId, UUID studentId) {
+        findCourse(courseId);
+        User student = userRepository.findWithRoleById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", studentId));
+        if (!Role.STUDENT.equals(student.getRole().getRoleName())) {
+            throw new BusinessException("Tài khoản không phải sinh viên");
+        }
+        courseRepository.enrollStudent(courseId, studentId);
+    }
+
+    @Transactional
+    public void unenrollStudent(UUID courseId, UUID studentId) {
+        findCourse(courseId);
+        courseRepository.unenrollStudent(courseId, studentId);
+    }
 
     private Course findCourse(UUID id) {
         return courseRepository.findById(id)
