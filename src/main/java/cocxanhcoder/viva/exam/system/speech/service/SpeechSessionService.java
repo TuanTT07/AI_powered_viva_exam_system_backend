@@ -58,7 +58,7 @@ public class SpeechSessionService {
         connections.put(socket.getId(), c);
         send(c, "session.ready", null, null, Map.of("encoding", "PCM_S16LE", "sampleRate", 16000,
                 "channels", 1, "maxFrameBytes", 32768, "maxAnswerSeconds", properties.getMaxAnswerSeconds(),
-                "sttProvider", properties.getSttProvider(), "ttsProvider", "browser", "ttsLanguage", properties.getLanguage()));
+                "sttProvider", properties.getSttProvider(), "ttsProvider", "deepgram", "ttsLanguage", properties.getLanguage()));
     }
 
     public void command(String socketId, ClientEvent event) {

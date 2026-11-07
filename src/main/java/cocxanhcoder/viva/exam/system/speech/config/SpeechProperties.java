@@ -18,7 +18,8 @@ public class SpeechProperties {
     private String deepgramApiKey = "";
     @NotBlank private String deepgramModel = "nova-3";
     @NotBlank private String deepgramLanguage = "vi";
-    private String language = "vi-VN"; // Browser TTS language; Deepgram uses "vi".
+    @Pattern(regexp = "flux-[a-z0-9-]+") private String deepgramTtsModel = "flux-minh-vi";
+    private String language = "vi-VN";
     @Min(5) @Max(120) private int ticketTtlSeconds = 30;
     @Min(1) @Max(100) private int maxConcurrentStt = 1;
     @Min(1) @Max(20) private int maxConcurrentTts = 1;

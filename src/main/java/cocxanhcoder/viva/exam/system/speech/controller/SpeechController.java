@@ -31,8 +31,8 @@ public class SpeechController {
     public ResponseEntity<ApiResponse<QuestionPlayback>> playback(@PathVariable UUID attemptId,
             @PathVariable UUID questionTurnId, @AuthenticationPrincipal Jwt jwt) {
         var prompt = access.requirePrompt(UUID.fromString(jwt.getSubject()), attemptId, questionTurnId);
-        return ApiResponse.ok("Đọc câu hỏi bằng giọng của trình duyệt",
-                new QuestionPlayback(questionTurnId, prompt.text(), "browser", properties.getLanguage()));
+        return ApiResponse.ok("Lấy nội dung câu hỏi để phát audio",
+                new QuestionPlayback(questionTurnId, prompt.text(), "deepgram", properties.getLanguage()));
     }
 
     @PostMapping("/attempts/{attemptId}/speech-ticket")

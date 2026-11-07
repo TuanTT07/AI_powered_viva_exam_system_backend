@@ -15,8 +15,9 @@
 <label>JWT sinh viên<input id="jwt" type="password" autocomplete="off"></label>
 <label>Exam attempt ID<input id="attempt" autocomplete="off"></label>
 <label>Question turn ID (TranscriptTurn của AI)<input id="prompt" autocomplete="off"></label>
-<button id="tts">Đọc câu hỏi bằng giọng trình duyệt</button>
-<p><small>Cần có giọng tiếng Việt trên máy/trình duyệt. STT không phụ thuộc phần giọng đọc.</small></p>
+<button id="tts">Nghe câu hỏi · giọng nam Minh</button>
+<p><small>Audio MP3 được tạo bởi Deepgram và tải qua API có JWT.</small></p>
+<audio id="questionAudio" controls></audio>
 <label>File raw PCM S16LE, 16 kHz, mono<input id="pcm" type="file" accept=".pcm,.raw"></label>
 <small>Không chọn WAV/MP3/WebM. Tạo file theo hướng dẫn MODULE3_SPEECH.md. File được gửi theo tốc độ thời gian thực.</small>
 <div><button id="run">Kết nối và gửi audio</button><button id="end" disabled>Kết thúc sớm</button><button id="disconnect">Ngắt kết nối</button></div>
@@ -53,31 +54,32 @@ function disconnect() {
 }
 $('disconnect').onclick = disconnect;
 $('end').onclick = () => { streaming = false; $('end').disabled = true; };
+let audioUrl;
+function stopQuestionAudio() {
+  $('questionAudio').pause();
+  $('questionAudio').removeAttribute('src');
+  $('questionAudio').load();
+  if (audioUrl) URL.revokeObjectURL(audioUrl);
+  audioUrl = null;
+}
 $('tts').onclick = async () => {
   $('tts').disabled = true;
+  stopQuestionAudio();
   try {
-    if (!('speechSynthesis' in window)) throw new Error('Trình duyệt không hỗ trợ SpeechSynthesis.');
-    const body = await (await request(`${path()}/speech/questions/${encodeURIComponent($('prompt').value.trim())}/playback`)).json();
-    const synth = window.speechSynthesis;
-    if (!synth.getVoices().length) await new Promise(resolve => {
-      const done = () => { synth.removeEventListener('voiceschanged', done); resolve(); };
-      synth.addEventListener('voiceschanged', done); setTimeout(done, 2000);
-    });
-    const voice = synth.getVoices().find(v => v.lang.toLowerCase().startsWith('vi'));
-    if (!voice) throw new Error('Máy chưa có giọng tiếng Việt. Cài giọng vi-VN hoặc dùng máy có giọng này để demo TTS.');
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(body.data.text);
-    utterance.lang = body.data.language; utterance.voice = voice;
-    await new Promise((resolve, reject) => {
-      utterance.onend = resolve;
-      utterance.onerror = event => reject(new Error(`Không đọc được câu hỏi: ${event.error}`));
-      synth.speak(utterance);
-    });
-    log('Đã đọc xong câu hỏi. Có thể bắt đầu gửi câu trả lời.');
+    log('Đang tạo audio giọng nam Minh…');
+    const body = await (await request(`${path()}/speech/questions/${encodeURIComponent($('prompt').value.trim())}/audio`, 'POST')).json();
+    if (body.data.audioPath !== `/api/interview/speech/audio/${body.data.audioId}`) throw new Error('Đường dẫn audio không hợp lệ');
+    const blob = await (await request(body.data.audioPath)).blob();
+    audioUrl = URL.createObjectURL(blob);
+    $('questionAudio').src = audioUrl;
+    await $('questionAudio').play();
   } catch (e) { log(e.message); }
   finally { $('tts').disabled = false; }
 };
+$('prompt').addEventListener('change', stopQuestionAudio);
+$('attempt').addEventListener('change', stopQuestionAudio);
 $('run').onclick = async () => {
+  stopQuestionAudio();
   $('run').disabled = true;
   disconnect(); segments.clear(); $('transcript').textContent = ''; answerId = null;
   try {
@@ -144,6 +146,6 @@ $('run').onclick = async () => {
     log(`Đang chốt answerId=${answerId}. Có thể tra cứu qua REST nếu mất kết nối.`);
   } catch (e) { log(e.message); disconnect(); $('run').disabled = false; }
 };
-window.addEventListener('beforeunload', () => { disconnect(); window.speechSynthesis?.cancel(); });
+window.addEventListener('beforeunload', () => { disconnect(); stopQuestionAudio(); });
 </script>
 </html>

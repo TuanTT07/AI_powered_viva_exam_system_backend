@@ -45,9 +45,9 @@ cần migration Flyway mới; không sửa migration đã chạy. Không commit 
 | Thành viên | Module/phần chính | Trách nhiệm bàn giao |
 |---|---|---|
 | Backend 1 | interview | Bắt đầu/resume lượt thi, chọn câu chính, AI hỏi xoáy, chuyển câu, timer nghiệp vụ, lưu hội thoại |
-| Backend 2 | speech | Ticket, WebSocket, audio PCM, Deepgram STT, partial/final transcript, lỗi kết nối; hợp đồng Browser TTS |
+| Backend 2 | speech | Ticket, WebSocket, audio PCM, Deepgram STT, partial/final transcript, lỗi kết nối; hợp đồng Deepgram Flux TTS |
 | Backend 3 | grading | Chấm theo rubric, điểm/nhận xét AI, giảng viên điều chỉnh và chốt |
-| Frontend 1 | Phòng thi sinh viên | API interview, microphone/resample PCM, WebSocket, Browser TTS, transcript, timer, reconnect |
+| Frontend 1 | Phòng thi sinh viên | API interview, microphone/resample PCM, WebSocket, audio MP3 từ backend, transcript, timer, reconnect |
 | Frontend 2 | Chuẩn bị thi và giao diện chấm | Cấu hình lượt thi tối thiểu; transcript/rubric/điểm AI; sửa và chốt điểm |
 
 **Interview thuộc Backend 1.** InterviewAccessService, TranscriptService, interface,
@@ -66,7 +66,7 @@ phát AnswerDeadlineReachedEvent để yêu cầu kết thúc audio theo timer n
 | Speech REST và WebSocket, ticket/Origin/quyền sinh viên | Đã có code và test tự động |
 | Deepgram Listen v1, PCM 16 kHz mono, partial/final, CloseStream | Đã có adapter và test transport giả; cần thử provider thật |
 | Lưu transcript, thứ tự lượt, answerId chống trùng | Đã có TranscriptService và migration V7; cần kiểm tra DB thật |
-| Browser TTS | Đã có API playback và trang smoke; phụ thuộc giọng Việt trên máy |
+| Deepgram Flux TTS | Giọng nam Minh; tạo MP3, cache RAM và tải có JWT; đã thử provider thực tế |
 | API bắt đầu/resume/đọc trạng thái phỏng vấn | Chưa có trong module interview |
 | AI hỏi xoáy, chọn/chuyển câu, giới hạn follow-up | Chưa có lõi điều phối hoàn chỉnh; Backend 1 làm tiếp |
 | Đưa câu hỏi tiếp theo đến frontend | Chưa có hợp đồng hoàn chỉnh; BE1 + FE1 cần thống nhất |
@@ -190,7 +190,7 @@ không suy ra độ trôi chảy hoặc thời gian nói chính xác từ create
 ## 7. Frontend 1: thứ tự tích hợp
 
 1. Gọi API start/current do BE1 sẽ cung cấp để lấy attemptId và questionTurnId.
-2. GET playback hiện có, đọc câu hỏi bằng Browser TTS; kiểm tra giọng vi trên máy.
+2. GET playback lấy nội dung, POST audio tạo MP3 rồi GET audioPath kèm JWT để phát giọng nam Minh.
 3. POST speech-ticket có JWT, mở WebSocket bằng ticket, đợi session.ready.
 4. Gửi answer.start, đợi answer.started rồi mới thu/gửi PCM.
 5. Hiển thị transcript theo answerId/segmentId/revision. Partial là nội dung có thể sửa.
@@ -206,7 +206,7 @@ cơ chế lấy câu tiếp, ví dụ gọi API current và polling giới hạn
 
 Microphone thực tế cần chuyển/resample về PCM S16LE 16 kHz mono. Audio MediaRecorder
 thường có container/codec khác; không đổi tên WebM thành PCM rồi gửi.
-Browser TTS không tạo MP3/audioId; không gọi endpoint /audio cũ trong luồng demo.
+TTS dùng POST /audio và GET audioPath có JWT; không còn phụ thuộc giọng cài trên máy.
 Đọc [protocol chi tiết](MODULE3_SPEECH.md) trước khi triển khai.
 
 Frontend 2 phối hợp BE1 cho màn hình cấu hình tối thiểu, BE3 cho giao diện transcript,

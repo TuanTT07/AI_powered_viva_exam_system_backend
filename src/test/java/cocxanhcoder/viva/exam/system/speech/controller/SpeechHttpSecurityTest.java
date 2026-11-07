@@ -84,7 +84,7 @@ class SpeechHttpSecurityTest {
                 .andExpect(content().bytes(new byte[] {1, 2, 3}));
     }
 
-    @Test void playbackReturnsAuthorizedQuestionForBrowserTts() throws Exception {
+    @Test void playbackReturnsAuthorizedQuestionForDeepgramTts() throws Exception {
         UUID prompt = UUID.randomUUID();
         when(access.requirePrompt(student, attempt, prompt))
                 .thenReturn(new InterviewPrompt(prompt, UUID.randomUUID(), "Cau hoi demo", 60));
@@ -93,7 +93,7 @@ class SpeechHttpSecurityTest {
                         .with(jwt().jwt(j -> j.subject(student.toString()))
                                 .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.text").value("Cau hoi demo"))
-                .andExpect(jsonPath("$.data.ttsProvider").value("browser"))
+                .andExpect(jsonPath("$.data.ttsProvider").value("deepgram"))
                 .andExpect(jsonPath("$.data.language").value("vi-VN"));
     }
 }
