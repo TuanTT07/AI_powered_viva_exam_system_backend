@@ -68,6 +68,7 @@ app:
     deepgram-api-key: ${DEEPGRAM_API_KEY:}
     deepgram-model: ${DEEPGRAM_STT_MODEL:nova-3}
     deepgram-language: ${DEEPGRAM_STT_LANGUAGE:vi}
+    deepgram-tts-model: ${DEEPGRAM_TTS_MODEL:flux-minh-vi}
     language: ${SPEECH_LANGUAGE:vi-VN}
     ticket-ttl-seconds: ${SPEECH_TICKET_TTL_SECONDS:30}
     max-concurrent-stt: ${SPEECH_MAX_CONCURRENT_STT:1}
@@ -113,4 +114,4 @@ app:
     user-code: ${ADMIN_USER_CODE:ADMIN01}
   cors:
     # Các domain FE được phép gọi API, cách nhau bằng dấu phẩy
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://ai-powered-viva-exam-system-front-e.vercel.app,http://localhost:3000,http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://ai-powered-viva-exam-system-front-e.vercel.app,http://localhost:3000,http://localhost:5173,http://localhost:5174}

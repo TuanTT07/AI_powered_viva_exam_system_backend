@@ -1,4 +1,4 @@
-# Backend 2 — Deepgram STT và Browser TTS
+# Backend 2 — Deepgram STT và Deepgram Flux TTS
 
 Xem [bàn giao cho nhóm](TEAM_HANDOFF.md) để phân biệt phần nền interview thuộc BE1,
 speech thuộc BE2 và các API/event còn cần thống nhất. Tài liệu này tập trung vào
@@ -8,7 +8,7 @@ phần speech đã có; chưa mô tả một buổi thi hoàn chỉnh đã hoạ
 
 Backend mặc định chọn **Deepgram Nova-3** cho STT streaming tiếng Việt.
 Không cần Azure subscription, Azure key, region hay native Speech SDK.
-TTS demo sử dụng giọng tiếng Việt có sẵn trong trình duyệt/máy người dùng.
+TTS tạo MP3 bằng Deepgram Flux, mặc định giọng nam Minh `flux-minh-vi` (Early Access).
 
 Trong `.env` ở thư mục gốc, điền:
 
@@ -18,11 +18,12 @@ SPEECH_STT_PROVIDER=deepgram
 DEEPGRAM_API_KEY=<api-key-cua-ban>
 DEEPGRAM_STT_MODEL=nova-3
 DEEPGRAM_STT_LANGUAGE=vi
+DEEPGRAM_TTS_MODEL=flux-minh-vi
 SPEECH_LANGUAGE=vi-VN
 ```
 
 `DEEPGRAM_STT_LANGUAGE=vi` là ngôn ngữ STT; `SPEECH_LANGUAGE=vi-VN` là locale cho
-Browser TTS. Không commit `.env`, không gửi key vào frontend hoặc URL.
+Deepgram Flux TTS. Không commit `.env`, không gửi key vào frontend hoặc URL.
 Key được tạo ở [Deepgram Console](https://console.deepgram.com/), mục API keys.
 Thiếu key chỉ khiến phần speech trả lỗi 503, không ngăn các module khác khởi động.
 `.env.example` mặc định tắt speech để thành viên khác chủ động cấu hình key.
@@ -107,7 +108,9 @@ Mọi API yêu cầu JWT STUDENT, mật khẩu đã đổi, quyền sở hữu l
 | Method | Path | Kết quả |
 |---|---|---|
 | POST | `/api/interview/attempts/{attemptId}/speech-ticket` | ticket, expiresAt, websocketPath |
-| GET | `/api/interview/attempts/{attemptId}/speech/questions/{questionTurnId}/playback` | questionTurnId, text, ttsProvider=browser, language=vi-VN |
+| GET | `/api/interview/attempts/{attemptId}/speech/questions/{questionTurnId}/playback` | questionTurnId, text, ttsProvider=deepgram, language=vi-VN |
+| POST | `/api/interview/attempts/{attemptId}/speech/questions/{questionTurnId}/audio` | audioId, contentType, expiresAt, audioPath |
+| GET | `/api/interview/speech/audio/{audioId}` | MP3 riêng tư, JWT bắt buộc |
 | GET | `/api/interview/attempts/{attemptId}/speech/answers/{answerId}` | transcriptTurnId, text; 404 nếu chưa lưu |
 
 Ví dụ response playback (ID minh họa):
@@ -116,11 +119,11 @@ Ví dụ response playback (ID minh họa):
 {
   "success": true,
   "status": 200,
-  "message": "Đọc câu hỏi bằng giọng của trình duyệt",
+  "message": "Lấy nội dung câu hỏi để phát audio",
   "data": {
     "questionTurnId": "11111111-1111-4111-8111-111111111111",
     "text": "Giải thích dependency injection và cho một ví dụ.",
-    "ttsProvider": "browser",
+    "ttsProvider": "deepgram",
     "language": "vi-VN"
   }
 }
@@ -131,25 +134,18 @@ JWT, 403 là không có quyền, 428 là bắt buộc đổi mật khẩu, 409 l
 thi/lượt hỏi không phù hợp, 503 là speech chưa bật hoặc thiếu cấu hình key.
 
 Endpoint playback chỉ trả câu hỏi AI mới nhất đang hoạt động, không trả đáp án/rubric.
-Frontend đọc bằng SpeechSynthesisUtterance, chọn voice có lang bắt đầu bằng `vi`.
-Phải kiểm tra giọng trên máy demo; không có bảo đảm mọi trình duyệt đều có giọng Việt.
-Đợi sự kiện voiceschanged nếu danh sách chưa tải. Không mở microphone khi AI đang đọc.
+Frontend gọi POST `/api/interview/attempts/{attemptId}/speech/questions/{questionTurnId}/audio`
+để nhận `{audioId, contentType, expiresAt, audioPath}`. Sau đó GET audioPath kèm JWT,
+đọc Blob và phát bằng HTML audio. Không gắn JWT vào URL; không mở microphone khi đang phát.
+Dừng phát và thu hồi Blob URL khi chuyển câu/rời phòng. Lỗi TTS cho phép thử lại và vẫn đọc câu hỏi trên màn hình.
 
-```javascript
-const utterance = new SpeechSynthesisUtterance(playback.text);
-utterance.lang = playback.language;
-utterance.voice = speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith('vi'));
-if (!utterance.voice) throw new Error('Máy chưa có giọng tiếng Việt');
-utterance.onend = () => { /* Cho phép sinh viên bắt đầu trả lời */ };
-speechSynthesis.speak(utterance);
-```
+Backend cache MP3 riêng tư trong RAM (TTL mặc định 600 giây, tổng 16 MB), mất khi restart.
+API tải audio kiểm tra chủ sở hữu và trạng thái bài thi. Không cần migration DB.
 
-Deepgram Aura chưa liệt kê tiếng Việt trong [danh sách TTS](https://developers.deepgram.com/docs/tts-models),
-nên không dùng Aura tiếng Anh để đọc câu hỏi tiếng Việt.
-API POST `.../questions/{questionTurnId}/audio` cũ được giữ để không mất route,
-nhưng trả **501** với hướng dẫn dùng playback/Browser TTS khi key speech đã cấu hình.
-GET `/api/interview/speech/audio/{audioId}` chỉ dành cho clip server TTS tương lai;
-Browser TTS không tạo MP3 hay audioId. Không cần gọi hai API này cho demo hiện tại.
+Dùng cùng DEEPGRAM_API_KEY với STT. Cần bật SPEECH_ENABLED=true.
+Tài khoản phải có quyền sử dụng model Flux tiếng Việt; lỗi provider trả 503, không lộ key.
+Tiếng Việt đang Early Access và chưa tự chuẩn hóa số/ngày tháng: cần kiểm tra phát âm trên câu hỏi thực tế.
+Tài liệu: https://developers.deepgram.com/reference/speak/v-2/audio/generate
 
 ## WebSocket FE–BE
 
@@ -200,7 +196,7 @@ Ngừng gửi audio rồi gửi:
 
 | Server event | Ý nghĩa |
 |---|---|
-| session.ready | Thông số PCM, sttProvider=deepgram, ttsProvider=browser, ttsLanguage |
+| session.ready | Thông số PCM, sttProvider=deepgram, ttsProvider=deepgram, ttsLanguage |
 | answer.started | answerId và deadline; được phép gửi audio |
 | transcript.partial | data: segmentId, revision, text; thay đoạn tạm |
 | transcript.final | Chốt một đoạn theo segmentId, không nhân đôi |
@@ -264,7 +260,7 @@ python -m http.server 5173 --directory doc
 ```
 
 Mở http://localhost:5173/speech-smoke.html từ origin trong CORS; điền JWT sinh viên,
-attemptId, questionTurnId do BE1 đã khởi tạo. Thử đọc câu hỏi bằng Browser TTS.
+attemptId, questionTurnId do BE1 đã khởi tạo. Thử đọc câu hỏi bằng Deepgram Flux TTS.
 Chọn raw PCM đã ghi sẵn để kiểm tra STT. Nếu có FFmpeg:
 
 ```powershell
@@ -284,4 +280,4 @@ luồng thực tế vẫn cần kiểm tra với PostgreSQL + Deepgram key thậ
 Ticket, connection và cache ở một instance. Nhiều replica cần shared store/routing
 và quota chung. Không log key/JWT/ticket/audio/nội dung transcript. Log chỉ ghi ID,
 byte count và thời gian xử lý. Không có barge-in hay resume giữa câu.
-Đo riêng STT, sinh câu hỏi BE1 và thời điểm Browser TTS phát ở FE.
+Đo riêng STT, sinh câu hỏi BE1 và thời điểm Deepgram Flux TTS phát ở FE.

@@ -49,7 +49,7 @@ src/main/java/cocxanhcoder/viva/exam/system/
 Không tạo controller/repository/entity rỗng chỉ để mọi module có cùng số thư mục.
 Khi BE1 bổ sung API điều phối, controller của API đó nằm trong interview/controller.
 Speech chưa có dữ liệu persistence riêng nên không cần entity/repository.
-QuestionSpeechService giữ đường mở rộng server TTS; demo hiện tại đọc bằng Browser TTS.
+QuestionSpeechService tạo và cache MP3 riêng tư qua DeepgramTextToSpeechClient; mặc định giọng nam Minh (flux-minh-vi).
 
 ## Sở hữu dữ liệu và trách nhiệm
 
