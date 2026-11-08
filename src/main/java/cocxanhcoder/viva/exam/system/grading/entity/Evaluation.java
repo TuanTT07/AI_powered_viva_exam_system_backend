@@ -57,8 +57,13 @@ public class Evaluation {
     @Column(name = "final_score", precision = 5, scale = 2)
     private BigDecimal finalScore;
 
+    // Nhận xét giảng viên nhập khi chốt điểm (không bị AI ghi đè)
     @Column(name = "overall_feedback", columnDefinition = "TEXT")
     private String overallFeedback;
+
+    // Nhận xét tổng quan do AI sinh ra khi chấm điểm; giữ nguyên, không bị ghi đè khi giảng viên chốt điểm
+    @Column(name = "ai_overall_feedback", columnDefinition = "TEXT")
+    private String aiOverallFeedback;
 
     // Cột JSONB: Hibernate tự chuyển List<CriterionScore> <-> mảng JSON
     @JdbcTypeCode(SqlTypes.JSON)
