@@ -10,6 +10,7 @@ import cocxanhcoder.viva.exam.system.exammgt.repository.QuestionAttemptRepositor
 import cocxanhcoder.viva.exam.system.grading.dto.CriterionFinalScoreRequest;
 import cocxanhcoder.viva.exam.system.grading.dto.EvaluationResponse;
 import cocxanhcoder.viva.exam.system.grading.dto.FinalizeEvaluationRequest;
+import cocxanhcoder.viva.exam.system.grading.dto.TranscriptTurnResponse;
 import cocxanhcoder.viva.exam.system.grading.entity.CriterionScore;
 import cocxanhcoder.viva.exam.system.grading.entity.Evaluation;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
@@ -223,7 +224,36 @@ public class EvaluationService {
     }
 
     public List<StudentResult> publishedResults(UUID studentId, UUID attemptId) {
-        return evaluations.findPublishedResults(studentId, attemptId);
+        return evaluations.findPublishedEvaluations(studentId, attemptId).stream()
+                .map(this::toStudentResult)
+                .toList();
+    }
+
+    private StudentResult toStudentResult(Evaluation evaluation) {
+        QuestionAttempt qa = evaluation.getQuestionAttempt();
+        List<CriterionScore> criteria = evaluation.getEvaluationDetails() != null
+                ? evaluation.getEvaluationDetails() : List.of();
+        BigDecimal maxScore = criteria.stream()
+                .map(CriterionScore::maxScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<TranscriptTurnResponse> transcript = transcriptTurns
+                .findByQuestionAttemptIdOrderByTurnOrderAsc(qa.getId()).stream()
+                .filter(turn -> turn.belongsToCurrentRun(qa))
+                .map(t -> new TranscriptTurnResponse(t.getId(), t.getTurnOrder(), t.getSpeaker(), t.getTextContent(),
+                        t.getAudioClipUrl(), t.getTurnType(), t.getCreatedAt()))
+                .toList();
+
+        return new StudentResult(
+                qa.getId(),
+                qa.getQuestionOrder(),
+                qa.getQuestion() != null ? qa.getQuestion().getContent() : null,
+                evaluation.getFinalScore(),
+                maxScore,
+                evaluation.getOverallFeedback(),
+                criteria,
+                transcript,
+                qa.getExamAttempt() != null ? qa.getExamAttempt().getAudioRecordUrl() : null,
+                evaluation.getPublishedAt());
     }
 
     private QuestionAttempt lockQuestionAttempt(UUID id) {

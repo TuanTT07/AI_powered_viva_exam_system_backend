@@ -10,11 +10,15 @@ import cocxanhcoder.viva.exam.system.exammgt.repository.*;
 import cocxanhcoder.viva.exam.system.grading.dto.EvaluationResponse;
 import cocxanhcoder.viva.exam.system.grading.dto.FinalizeEvaluationRequest;
 import cocxanhcoder.viva.exam.system.grading.dto.CriterionFinalScoreRequest;
+import cocxanhcoder.viva.exam.system.grading.dto.StudentResult;
+import cocxanhcoder.viva.exam.system.grading.entity.CriterionScore;
 import cocxanhcoder.viva.exam.system.grading.entity.Evaluation;
 import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
 import cocxanhcoder.viva.exam.system.grading.mapper.EvaluationMapper;
 import cocxanhcoder.viva.exam.system.grading.repository.EvaluationRepository;
 import cocxanhcoder.viva.exam.system.grading.service.EvaluationService;
+import cocxanhcoder.viva.exam.system.interview.entity.Speaker;
+import cocxanhcoder.viva.exam.system.interview.entity.TranscriptTurn;
 import cocxanhcoder.viva.exam.system.interview.repository.TranscriptTurnRepository;
 import cocxanhcoder.viva.exam.system.questionbank.entity.Question;
 import cocxanhcoder.viva.exam.system.questionbank.entity.Rubric;
@@ -113,6 +117,42 @@ class EvaluationServiceTest {
                 eval.getFinalScore().compareTo(new BigDecimal("8.5")) == 0 &&
                 eval.getStatus() == EvaluationStatus.GRADED
         ));
+    }
+
+    @Test
+    void publishedResultsIncludeQuestionContentCriteriaAndTranscriptForStudentReview() {
+        UUID studentId = UUID.randomUUID();
+        UUID attemptId = UUID.randomUUID();
+        QuestionAttempt qa = sampleQuestionAttempt();
+
+        Evaluation evaluation = new Evaluation();
+        evaluation.setQuestionAttempt(qa);
+        evaluation.setFinalScore(new BigDecimal("8.5"));
+        evaluation.setOverallFeedback("Trả lời tốt");
+        evaluation.setPublishedAt(java.time.OffsetDateTime.now());
+        CriterionScore criterion = new CriterionScore(UUID.randomUUID(), "Đúng kiến thức",
+                new BigDecimal("10"), new BigDecimal("8"), new BigDecimal("8.5"), "Hiểu đúng vấn đề");
+        evaluation.setEvaluationDetails(List.of(criterion));
+
+        when(evaluations.findPublishedEvaluations(studentId, attemptId)).thenReturn(List.of(evaluation));
+
+        TranscriptTurn turn = new TranscriptTurn();
+        turn.setId(UUID.randomUUID());
+        turn.setTurnOrder(1);
+        turn.setSpeaker(Speaker.STUDENT);
+        turn.setTextContent("Câu trả lời của tôi");
+        turn.setCreatedAt(java.time.OffsetDateTime.now());
+        when(transcriptTurns.findByQuestionAttemptIdOrderByTurnOrderAsc(qa.getId())).thenReturn(List.of(turn));
+
+        List<StudentResult> results = service.publishedResults(studentId, attemptId);
+
+        assertEquals(1, results.size());
+        StudentResult result = results.getFirst();
+        assertEquals("Sample Question Content", result.questionContent());
+        assertEquals(1, result.criteria().size());
+        assertEquals("Hiểu đúng vấn đề", result.criteria().getFirst().comment());
+        assertEquals(1, result.transcript().size());
+        assertEquals("Câu trả lời của tôi", result.transcript().getFirst().textContent());
     }
 
     private QuestionAttempt sampleQuestionAttempt() {
