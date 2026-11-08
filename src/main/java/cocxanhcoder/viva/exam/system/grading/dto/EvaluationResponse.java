@@ -18,6 +18,7 @@ public record EvaluationResponse(
         BigDecimal finalScore,
         BigDecimal maxScore,
         String overallFeedback,
+        String aiOverallFeedback,
         List<CriterionScore> criteria,
         EvaluationStatus status,
         OffsetDateTime createdAt,
@@ -30,14 +31,4 @@ public record EvaluationResponse(
         String studentCode,
         OffsetDateTime publishedAt
 ) {
-    public EvaluationResponse(
-            UUID id, UUID questionAttemptId, UUID questionId, String questionContent,
-            UUID gradedById, String gradedByName, BigDecimal aiSuggestedScore, BigDecimal finalScore,
-            BigDecimal maxScore, String overallFeedback, List<CriterionScore> criteria,
-            EvaluationStatus status, OffsetDateTime createdAt, List<TranscriptTurnResponse> transcript,
-            String audioUrl, OffsetDateTime updatedAt) {
-        this(id, questionAttemptId, questionId, questionContent, gradedById, gradedByName,
-                aiSuggestedScore, finalScore, maxScore, overallFeedback, criteria, status,
-                createdAt, transcript, audioUrl, updatedAt, null, null, null, null, null);
-    }
 }

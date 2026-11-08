@@ -110,7 +110,7 @@ public class EvaluationService {
         evaluation.setGradedBy(null);
         evaluation.setAiSuggestedScore(total);
         evaluation.setFinalScore(null);
-        evaluation.setOverallFeedback(result.overallFeedback());
+        evaluation.setAiOverallFeedback(result.overallFeedback());
         evaluation.setEvaluationDetails(details);
         evaluation.setStatus(EvaluationStatus.PENDING_REVIEW);
 
