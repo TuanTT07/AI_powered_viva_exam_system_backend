@@ -200,8 +200,8 @@ class InterviewPostgresTest {
         var prompt = flow.current(student, attempt).prompt();
         mvc.perform(get(path + "/current").with(owner))
                 .andExpect(jsonPath("$.data.prompt.questionTurnId").value(prompt.questionTurnId().toString()))
-                .andExpect(jsonPath("$.data.prompt.deadlineAt").doesNotExist());
-        assertNull(prompt.deadlineAt());
+                .andExpect(jsonPath("$.data.prompt.deadlineAt").isNotEmpty());
+        assertNotNull(prompt.deadlineAt());
         var deadline = access.beginAnswer(student, attempt, prompt.questionTurnId(), prompt.questionAttemptId(), 60);
         assertEquals(deadline, flow.current(student, attempt).prompt().deadlineAt());
         assertEquals(deadline, access.beginAnswer(student, attempt, prompt.questionTurnId(), prompt.questionAttemptId(), 60));

@@ -88,4 +88,37 @@ class TranscriptServiceTest {
                 "Another?", TurnType.FOLLOW_UP));
         verify(turns, times(1)).saveAndFlush(any());
     }
+    @Test void mainAndFollowUpHaveDeadlinesBeforeRecording() {
+        qa.setStatus(QuestionAttemptStatus.IN_PROGRESS);
+        Exam exam = new Exam(); exam.setExamConfig(Map.of("timeLimitPerTurnSeconds", 120));
+        qa.getExamAttempt().setExam(exam);
+        when(turns.findByQuestionAttemptIdOrderByTurnOrderAsc(question)).thenReturn(List.of());
+        when(turns.saveAndFlush(any())).thenAnswer(i -> {
+            TranscriptTurn row = i.getArgument(0); row.setId(UUID.randomUUID()); return row;
+        });
+        Instant before = Instant.now();
+        service.recordQuestion(student, attempt, question, "Main?", TurnType.MAIN_QUESTION);
+        service.recordQuestion(student, attempt, question, "Follow-up?", TurnType.FOLLOW_UP);
+        var captured = ArgumentCaptor.forClass(TranscriptTurn.class);
+        verify(turns, times(2)).saveAndFlush(captured.capture());
+        for (var row : captured.getAllValues()) {
+            assertFalse(row.getDeadlineAt().isBefore(before.plusSeconds(120)));
+            assertFalse(row.getDeadlineAt().isAfter(Instant.now().plusSeconds(120)));
+        }
+    }
+
+    @Test void questionDeadlineCannotExceedSlotEnd() {
+        qa.setStatus(QuestionAttemptStatus.IN_PROGRESS);
+        var end = java.time.OffsetDateTime.now().plusSeconds(15);
+        qa.getExamAttempt().setScheduledEndTime(end);
+        when(turns.findByQuestionAttemptIdOrderByTurnOrderAsc(question)).thenReturn(List.of());
+        when(turns.saveAndFlush(any())).thenAnswer(i -> {
+            TranscriptTurn row = i.getArgument(0); row.setId(UUID.randomUUID()); return row;
+        });
+        service.recordQuestion(student, attempt, question, "Question?", TurnType.MAIN_QUESTION);
+        var captured = ArgumentCaptor.forClass(TranscriptTurn.class);
+        verify(turns).saveAndFlush(captured.capture());
+        assertEquals(end.toInstant(), captured.getValue().getDeadlineAt());
+    }
+
 }

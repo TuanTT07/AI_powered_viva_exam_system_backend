@@ -46,6 +46,10 @@ public class TranscriptService implements InterviewAnswers {
         row.setSpeaker(Speaker.AI);
         row.setTurnType(type);
         row.setTextContent(text.strip());
+        Instant deadline = Instant.now().plusSeconds(InterviewTiming.turnSeconds(qa.getExamAttempt()));
+        Instant slotEnd = InterviewTiming.slotEnd(qa.getExamAttempt());
+        if (slotEnd != null && slotEnd.isBefore(deadline)) deadline = slotEnd;
+        row.setDeadlineAt(deadline);
         return turns.saveAndFlush(row).getId();
     }
 
