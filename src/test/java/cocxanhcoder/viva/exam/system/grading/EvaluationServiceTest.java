@@ -38,6 +38,7 @@ import static org.mockito.Mockito.*;
 
 class EvaluationServiceTest {
     private final EvaluationRepository evaluations = mock(EvaluationRepository.class);
+    private final ExamAttemptRepository attempts = mock(ExamAttemptRepository.class);
     private final ExamRepository exams = mock(ExamRepository.class);
     private final QuestionAttemptRepository questionAttempts = mock(QuestionAttemptRepository.class);
     private final TranscriptTurnRepository transcriptTurns = mock(TranscriptTurnRepository.class);
@@ -45,7 +46,7 @@ class EvaluationServiceTest {
     private final CourseAccessService access = mock(CourseAccessService.class);
     private final EvaluationMapper mapper = mock(EvaluationMapper.class);
     private final EvaluationService service = new EvaluationService(evaluations, questionAttempts,
-            transcriptTurns, ai, access, mapper, exams);
+            transcriptTurns, ai, access, mapper, exams, attempts);
 
     @Test
     void examEvaluationsSupportStatusFilterAndPagination() {

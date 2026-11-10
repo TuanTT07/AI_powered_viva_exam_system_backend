@@ -6,6 +6,8 @@ import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
 import cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttempt;
 import cocxanhcoder.viva.exam.system.exammgt.repository.ExamRepository;
+import cocxanhcoder.viva.exam.system.exammgt.repository.ExamAttemptRepository;
+import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttemptStatus;
 import cocxanhcoder.viva.exam.system.exammgt.repository.QuestionAttemptRepository;
 import cocxanhcoder.viva.exam.system.grading.dto.CriterionFinalScoreRequest;
 import cocxanhcoder.viva.exam.system.grading.dto.EvaluationResponse;
@@ -44,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EvaluationService {
 
     private final ExamRepository exams;
+    private final ExamAttemptRepository attempts;
     private final EvaluationRepository evaluations;
     private final QuestionAttemptRepository questionAttempts;
     private final TranscriptTurnRepository transcriptTurns;
@@ -54,7 +57,8 @@ public class EvaluationService {
     public EvaluationService(EvaluationRepository evaluations, QuestionAttemptRepository questionAttempts,
                               TranscriptTurnRepository transcriptTurns, AiClient ai,
                               CourseAccessService courseAccess, EvaluationMapper mapper,
-                              ExamRepository exams) {
+                              ExamRepository exams, ExamAttemptRepository attempts) {
+        this.attempts = attempts;
         this.exams = exams;
         this.evaluations = evaluations;
         this.questionAttempts = questionAttempts;
@@ -223,6 +227,37 @@ public class EvaluationService {
         if (evaluation.getStatus() != EvaluationStatus.GRADED || evaluation.getFinalScore() == null)
             throw new BusinessException(HttpStatus.CONFLICT, "Cần chốt điểm trước khi công bố");
         if (evaluation.getPublishedAt() == null) evaluation.setPublishedAt(OffsetDateTime.now());
+    }
+
+    /** Publish the whole completed attempt atomically after validating every question. */
+    @Transactional
+    public void publishAttempt(UUID actorId, UUID examId, UUID attemptId) {
+        var exam = exams.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam", examId));
+        courseAccess.requireManager(actorId, exam.getCourse().getId());
+        var attempt = attempts.findLockedById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("ExamAttempt", attemptId));
+        if (!attempt.getExam().getId().equals(examId))
+            throw new ResourceNotFoundException("ExamAttempt", attemptId);
+        if (attempt.getStatus() != ExamAttemptStatus.COMPLETED)
+            throw new BusinessException(HttpStatus.CONFLICT, "Sinh viên chưa hoàn tất lượt thi");
+        var assigned = questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(attemptId);
+        if (assigned.isEmpty())
+            throw new BusinessException(HttpStatus.CONFLICT, "Lượt thi chưa có câu hỏi");
+        List<Evaluation> ready = new ArrayList<>();
+        for (var question : assigned) {
+            var locked = questionAttempts.findLockedById(question.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("QuestionAttempt", question.getId()));
+            var evaluation = evaluations.findByQuestionAttemptId(locked.getId()).orElse(null);
+            if (evaluation == null || evaluation.getStatus() != EvaluationStatus.GRADED
+                    || evaluation.getFinalScore() == null)
+                throw new BusinessException(HttpStatus.CONFLICT, "Cần lưu điểm tất cả câu chính trước khi công bố kết quả");
+            ready.add(evaluation);
+        }
+        var publishedAt = OffsetDateTime.now();
+        for (var evaluation : ready) {
+            if (evaluation.getPublishedAt() == null) evaluation.setPublishedAt(publishedAt);
+        }
     }
 
     public List<StudentResult> publishedResults(UUID studentId, UUID attemptId) {

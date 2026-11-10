@@ -8,3 +8,6 @@ New endpoints (deploy backend before frontend):
 Existing explicit per-question AI-grade, final and publish endpoints remain unchanged. Frontend must submit the selected `questionAttemptId`, not an examAttemptId. Drafts can be finalized directly; no AI call is required first.
 
 Verification: full Maven test suite with isolated PostgreSQL 17 and `-Dinterview.pg.test=true` passed 103 tests. The integration regression starts with 3 assigned questions and zero evaluations, reads all 3 without writes/AI, finalizes and publishes each question, then verifies 3 released student results. Includes student-role denial on lecturer inventory and unrelated-owner denial on student summary.
+
+## Publish all results once
+`PUT /api/exams/{examId}/attempts/{attemptId}/publish` (no body) checks course manager, exam ownership, completed attempt and every assigned question's finalized evaluation. It locks attempt then question rows and publishes all unpublished evaluations atomically, preserving existing publishedAt on retry. Missing grade/incomplete attempt returns409 with no publication changes. Old per-question publication stays backward compatible. Deploy this endpoint before the corresponding FE action.

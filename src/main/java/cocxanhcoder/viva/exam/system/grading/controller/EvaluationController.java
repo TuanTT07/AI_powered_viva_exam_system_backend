@@ -102,6 +102,13 @@ public class EvaluationController {
                 evaluationService.studentResultSummary(actor(jwt), attemptId));
     }
 
+    @PutMapping("/api/exams/{examId}/attempts/{attemptId}/publish")
+    public ResponseEntity<ApiResponse<Void>> publishAttempt(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID examId, @PathVariable UUID attemptId) {
+        evaluationService.publishAttempt(actor(jwt), examId, attemptId);
+        return ApiResponse.ok("Đã công bố kết quả toàn bộ lượt thi");
+    }
+
     private UUID actor(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
     }
