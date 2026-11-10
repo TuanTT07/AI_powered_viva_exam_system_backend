@@ -77,4 +77,14 @@ class InterviewAccessServiceTest {
         user.setMustChangePassword(true);
         assertThrows(BusinessException.class, () -> access.requireActiveAttempt(student, attemptId));
     }
+    @Test void recordingKeepsQuestionOpeningDeadlineAndRejectsExpiredPrompt() {
+        when(questions.findLockedById(qa.getId())).thenReturn(Optional.of(qa));
+        var deadline = java.time.Instant.now().plusSeconds(20);
+        prompt.setDeadlineAt(deadline);
+        assertEquals(deadline, access.beginAnswer(student, attemptId, promptId, qa.getId(), 90));
+        assertEquals(deadline, access.requirePrompt(student, attemptId, promptId).deadlineAt());
+        prompt.setDeadlineAt(java.time.Instant.now().minusSeconds(20));
+        assertThrows(BusinessException.class, () -> access.beginAnswer(student, attemptId, promptId, qa.getId(), 90));
+    }
+
 }
