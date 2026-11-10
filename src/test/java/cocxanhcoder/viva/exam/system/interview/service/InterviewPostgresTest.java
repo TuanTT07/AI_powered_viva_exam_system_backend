@@ -311,8 +311,20 @@ class InterviewPostgresTest {
             mvc.perform(put(base + "/final").with(lecturer).contentType("application/json")
                     .content("{\"criteria\":[{\"criterionId\":\"" + criterion + "\",\"finalScore\":8}],\"overallFeedback\":\"Confirmed\"}"))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.data.questionAttemptId").value(id.toString()));
-            mvc.perform(put(base + "/publish").with(lecturer)).andExpect(status().isOk());
+            if (id.equals(ids.getFirst())) {
+                mvc.perform(put(inventory.replace("/grading", "/publish")).with(lecturer))
+                        .andExpect(status().isConflict());
+                assertEquals(0, db.queryForObject("select count(*) from evaluations e join question_attempts q on q.id = e.question_attempt_id where q.exam_attempt_id = ? and e.published_at is not null", Integer.class, attempt));
+            }
         }
+        String publishAll = inventory.replace("/grading", "/publish");
+        mvc.perform(put(publishAll).with(lecturer)).andExpect(status().isOk());
+        var firstPublication = db.queryForList("select e.published_at from evaluations e join question_attempts q on q.id = e.question_attempt_id where q.exam_attempt_id = ? order by q.question_order", attempt);
+        assertEquals(3, firstPublication.size());
+        assertEquals(firstPublication.getFirst(), firstPublication.getLast());
+        mvc.perform(put(publishAll).with(lecturer)).andExpect(status().isOk());
+        assertEquals(firstPublication, db.queryForList("select e.published_at from evaluations e join question_attempts q on q.id = e.question_attempt_id where q.exam_attempt_id = ? order by q.question_order", attempt));
+        mvc.perform(put(publishAll).with(owner)).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/student/exams/" + attempt + "/result-summary").with(owner))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalQuestions").value(3))
                 .andExpect(jsonPath("$.data.questions.length()").value(3));
