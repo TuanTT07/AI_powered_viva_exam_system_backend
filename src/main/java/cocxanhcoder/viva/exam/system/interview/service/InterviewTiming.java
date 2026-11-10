@@ -18,8 +18,12 @@ final class InterviewTiming {
 
     static Instant deadline(TranscriptTurn turn) {
         if (turn.getDeadlineAt() != null) return turn.getDeadlineAt();
-        if (turn.getCreatedAt() == null) return null;
-        return turn.getCreatedAt().toInstant()
-                .plusSeconds(turnSeconds(turn.getQuestionAttempt().getExamAttempt()));
+        return slotEnd(turn.getQuestionAttempt().getExamAttempt());
+    }
+
+    static Instant slotEnd(ExamAttempt attempt) {
+        var end = attempt.getScheduledEndTime();
+        if (end == null && attempt.getExam() != null) end = attempt.getExam().getEndTime();
+        return end == null ? null : end.toInstant();
     }
 }

@@ -5,6 +5,7 @@ import cocxanhcoder.viva.exam.system.academic.repository.UserRepository;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
 import cocxanhcoder.viva.exam.system.exammgt.entity.*;
 import cocxanhcoder.viva.exam.system.exammgt.repository.ExamAttemptRepository;
+import cocxanhcoder.viva.exam.system.exammgt.repository.QuestionAttemptRepository;
 import cocxanhcoder.viva.exam.system.interview.entity.*;
 import cocxanhcoder.viva.exam.system.interview.repository.TranscriptTurnRepository;
 import org.junit.jupiter.api.*;
@@ -16,7 +17,8 @@ class InterviewAccessServiceTest {
     private final ExamAttemptRepository attempts = mock(ExamAttemptRepository.class);
     private final TranscriptTurnRepository turns = mock(TranscriptTurnRepository.class);
     private final UserRepository users = mock(UserRepository.class);
-    private final InterviewAccessService access = new InterviewAccessService(attempts, turns, users);
+    private final QuestionAttemptRepository questions = mock(QuestionAttemptRepository.class);
+    private final InterviewAccessService access = new InterviewAccessService(attempts, turns, users, questions);
     private final UUID student = UUID.randomUUID(), attemptId = UUID.randomUUID(), promptId = UUID.randomUUID();
     private final User user = new User();
     private final ExamAttempt attempt = new ExamAttempt();
@@ -40,6 +42,17 @@ class InterviewAccessServiceTest {
         var result = access.requirePrompt(student, attemptId, promptId);
         assertEquals(qa.getId(), result.questionAttemptId());
         assertEquals(90, result.timeLimitSeconds());
+    }
+
+    @Test void firstAcceptedStartSetsDeadlineAndRetryKeepsIt() {
+        when(questions.findLockedById(qa.getId())).thenReturn(Optional.of(qa));
+        assertNull(access.requirePrompt(student, attemptId, promptId).deadlineAt());
+
+        var before = java.time.Instant.now().minusSeconds(1);
+        var deadline = access.beginAnswer(student, attemptId, promptId, qa.getId(), 60);
+        assertTrue(deadline.isAfter(before.plusSeconds(60)));
+        assertEquals(deadline, access.requirePrompt(student, attemptId, promptId).deadlineAt());
+        assertEquals(deadline, access.beginAnswer(student, attemptId, promptId, qa.getId(), 90));
     }
 
     @Test void anotherStudentsAttemptIsForbidden() {

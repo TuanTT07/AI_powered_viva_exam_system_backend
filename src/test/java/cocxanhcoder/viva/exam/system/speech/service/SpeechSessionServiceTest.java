@@ -40,6 +40,8 @@ class SpeechSessionServiceTest {
         socket = socket("socket-1");
         when(access.requirePrompt(student, attempt, prompt))
                 .thenReturn(new InterviewPrompt(prompt, question, "Question?", 60));
+        when(access.beginAnswer(eq(student), eq(attempt), eq(prompt), eq(question), anyInt()))
+                .thenAnswer(call -> Instant.now().plusSeconds(call.<Integer>getArgument(4)));
         when(transcripts.complete(eq(student), eq(attempt), eq(prompt), eq(question), any(), anyString(), any(), any()))
                 .thenAnswer(i -> new AnswerReceipt(UUID.randomUUID(), i.getArgument(5)));
         service.connect(socket, grant(attempt));
@@ -152,8 +154,29 @@ class SpeechSessionServiceTest {
         assertEquals(0, provider.audioBytes.get());
     }
 
+    @Test void discardingKeepsSocketAndDoesNotPersistTheOldRecording() throws Exception {
+        Instant deadline = Instant.now().plusSeconds(40);
+        when(access.beginAnswer(student, attempt, prompt, question, 60)).thenReturn(deadline);
+        start();
+        UUID oldAnswer = answer();
+        provider.listener.recognized("0", "Discard this");
+        UUID request = UUID.randomUUID();
+        service.command("socket-1", new ClientEvent("answer.discard", request, null, oldAnswer, null));
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(3)).until(() ->
+                messages.stream().anyMatch(m -> m.path("type").asText().equals("answer.discarded")
+                        && m.path("requestId").asText().equals(request.toString())));
+        verifyNoInteractions(transcripts);
+        service.command("socket-1", new ClientEvent("answer.start", UUID.randomUUID(), prompt, null,
+                new AudioFormat("PCM_S16LE", 16000, 1)));
+        var starts = messages.stream().filter(m -> m.path("type").asText().equals("answer.started")).toList();
+        assertEquals(2, starts.size());
+        assertNotEquals(oldAnswer.toString(), starts.getLast().path("answerId").asText());
+        assertEquals(deadline.toString(), starts.getLast().path("data").path("deadline").asText());
+    }
+
     @Test void reconnectKeepsTheOriginalPromptDeadline() throws Exception {
         Instant deadline = Instant.now().plusSeconds(20);
+        when(access.beginAnswer(student, attempt, prompt, question, 60)).thenReturn(deadline);
         when(access.requirePrompt(student, attempt, prompt))
                 .thenReturn(new InterviewPrompt(prompt, question, "Question?", 60, deadline));
         start();

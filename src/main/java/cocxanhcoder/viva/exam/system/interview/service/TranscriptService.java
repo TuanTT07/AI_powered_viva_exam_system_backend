@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /** Shared persistence boundary. BE1 should use the same QA lock when appending AI turns. */
@@ -47,8 +46,6 @@ public class TranscriptService implements InterviewAnswers {
         row.setSpeaker(Speaker.AI);
         row.setTurnType(type);
         row.setTextContent(text.strip());
-        row.setDeadlineAt(Instant.now().truncatedTo(ChronoUnit.MICROS)
-                .plusSeconds(InterviewTiming.turnSeconds(qa.getExamAttempt())));
         return turns.saveAndFlush(row).getId();
     }
 

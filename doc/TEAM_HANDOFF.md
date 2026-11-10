@@ -11,9 +11,10 @@ API đã triển khai sau đây, dùng JWT STUDENT của chủ lượt thi.
 
 `data.status` là `READY`, `AWAITING_ANSWER`, `PROCESSING` hoặc `COMPLETED`.
 Khi `AWAITING_ANSWER`, `data.prompt` chứa `questionAttemptId`, `questionTurnId`,
-`text` và `deadlineAt` (UTC, ISO 8601). Dùng `questionTurnId` với playback và
-WebSocket speech. Khi bắt đầu thu âm, speech có thể trả deadline sớm hơn theo
-giới hạn STT. FE dùng deadline sớm hơn trong lúc thu.
+`text` và `deadlineAt` (UTC, ISO 8601 hoặc null trước khi bắt đầu trả lời).
+Dùng `questionTurnId` với playback và WebSocket speech. Backend lưu deadline
+khi chấp nhận bắt đầu thu âm, giới hạn theo cấu hình, STT và giờ kết thúc ca thi.
+FE bắt đầu đếm ngược theo deadline trong sự kiện `answer.started`.
 
 Sau `answer.finalized` hoặc hết giờ, gọi `current` mỗi giây trong khi trạng thái
 là `PROCESSING`. Dừng polling khi nhận câu mới hoặc `COMPLETED`. Sau khi mất

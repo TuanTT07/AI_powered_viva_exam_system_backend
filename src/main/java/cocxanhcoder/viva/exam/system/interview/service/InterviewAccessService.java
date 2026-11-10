@@ -5,6 +5,7 @@ import cocxanhcoder.viva.exam.system.interview.dto.InterviewPrompt;
 import cocxanhcoder.viva.exam.system.academic.repository.UserRepository;
 import cocxanhcoder.viva.exam.system.exammgt.entity.*;
 import cocxanhcoder.viva.exam.system.exammgt.repository.ExamAttemptRepository;
+import cocxanhcoder.viva.exam.system.exammgt.repository.QuestionAttemptRepository;
 import cocxanhcoder.viva.exam.system.interview.entity.*;
 import cocxanhcoder.viva.exam.system.interview.repository.TranscriptTurnRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class InterviewAccessService implements InterviewAccess {
     private final ExamAttemptRepository attempts;
     private final TranscriptTurnRepository turns;
     private final UserRepository users;
+    private final QuestionAttemptRepository questions;
 
     public ExamAttempt requireOwner(UUID studentId, UUID attemptId) {
         var user = users.findById(studentId)
@@ -39,6 +41,29 @@ public class InterviewAccessService implements InterviewAccess {
         ExamAttempt attempt = requireOwner(studentId, attemptId);
         if (attempt.getStatus() != ExamAttemptStatus.IN_PROGRESS)
             throw new BusinessException(HttpStatus.CONFLICT, "Lượt thi chưa bắt đầu hoặc đã kết thúc");
+    }
+
+    @Override
+    @Transactional
+    public Instant beginAnswer(UUID studentId, UUID attemptId, UUID questionTurnId, UUID questionAttemptId, int limitSeconds) {
+        var question = questions.findLockedById(questionAttemptId).orElseThrow();
+        var prompt = requirePrompt(studentId, attemptId, questionTurnId);
+        if (!prompt.questionAttemptId().equals(questionAttemptId)) throw new BusinessException("Sai lượt hỏi");
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        var turn = turns.findById(questionTurnId).orElseThrow();
+        Instant existing = turn.getDeadlineAt();
+        if (existing != null) {
+            if (!now.isBefore(existing))
+                throw new BusinessException(HttpStatus.CONFLICT, "Lượt hỏi đã hết thời gian");
+            return existing;
+        }
+        Instant end = InterviewTiming.slotEnd(question.getExamAttempt());
+        if (end != null && !now.isBefore(end))
+            throw new BusinessException(HttpStatus.CONFLICT, "Ca thi đã hết thời gian");
+        Instant deadline = now.plusSeconds(Math.min(prompt.timeLimitSeconds(), limitSeconds));
+        if (end != null && end.isBefore(deadline)) deadline = end;
+        turn.setDeadlineAt(deadline);
+        return deadline;
     }
 
     public InterviewPrompt requirePrompt(UUID studentId, UUID attemptId, UUID promptId) {
@@ -60,7 +85,7 @@ public class InterviewAccessService implements InterviewAccess {
                 deadline.plusSeconds(InterviewTiming.FINALIZATION_GRACE_SECONDS)))
             throw new BusinessException(HttpStatus.CONFLICT, "Lượt hỏi đã hết thời gian");
         return new InterviewPrompt(promptId, qa.getId(), turn.getTextContent(),
-                InterviewTiming.turnSeconds(qa.getExamAttempt()), deadline);
+                InterviewTiming.turnSeconds(qa.getExamAttempt()), turn.getDeadlineAt());
     }
 
 }

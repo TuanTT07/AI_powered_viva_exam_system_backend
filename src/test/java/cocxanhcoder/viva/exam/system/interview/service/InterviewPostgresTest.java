@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @EnabledIfSystemProperty(named = "interview.pg.test", matches = "true")
 class InterviewPostgresTest {
     @Autowired InterviewFlow flow;
+    @Autowired InterviewAccessService access;
     @Autowired TranscriptService transcripts;
     @Autowired JdbcTemplate db;
     @Autowired MockMvc mvc;
@@ -114,6 +115,24 @@ class InterviewPostgresTest {
     }
 
     @Test
+    void twoMainQuestionsWithOneFollowUpEachNeverIssueAFifthTurn() {
+        seed(2, 1);
+        when(ai.suggestFollowUp(anyString())).thenReturn("Follow-up A", "Follow-up B");
+        flow.start(student, attempt);
+        for (String expected : java.util.List.of("Main 1", "Follow-up A", "Main 2", "Follow-up B")) {
+            await().atMost(Duration.ofSeconds(8)).untilAsserted(() -> {
+                var state = flow.current(student, attempt);
+                assertEquals(Status.AWAITING_ANSWER, state.status());
+                assertEquals(expected, state.prompt().text());
+            });
+            var prompt = flow.current(student, attempt).prompt();
+            submit(prompt.questionAttemptId(), prompt.questionTurnId(), UUID.randomUUID());
+        }
+        awaitCompleted();
+        verify(ai, times(2)).suggestFollowUp(anyString());
+    }
+
+    @Test
     void expiredPromptAllowsFinalizationDuringGraceThenSkipsUnansweredQuestion() {
         seed(2, 1);
         when(ai.suggestFollowUp(anyString())).thenThrow(new IllegalStateException("provider failed"));
@@ -181,7 +200,11 @@ class InterviewPostgresTest {
         var prompt = flow.current(student, attempt).prompt();
         mvc.perform(get(path + "/current").with(owner))
                 .andExpect(jsonPath("$.data.prompt.questionTurnId").value(prompt.questionTurnId().toString()))
-                .andExpect(jsonPath("$.data.prompt.deadlineAt").exists());
+                .andExpect(jsonPath("$.data.prompt.deadlineAt").doesNotExist());
+        assertNull(prompt.deadlineAt());
+        var deadline = access.beginAnswer(student, attempt, prompt.questionTurnId(), prompt.questionAttemptId(), 60);
+        assertEquals(deadline, flow.current(student, attempt).prompt().deadlineAt());
+        assertEquals(deadline, access.beginAnswer(student, attempt, prompt.questionTurnId(), prompt.questionAttemptId(), 60));
     }
 
     @Test
