@@ -71,6 +71,7 @@ public class SpeechSessionService {
                 switch (event.type()) {
                     case "ping" -> send(c, "pong", event.requestId(), null, Map.of());
                     case "answer.start" -> start(c, event);
+                    case "answer.discard" -> discard(c, event);
                     case "answer.end" -> {
                         if (c.answer == null || !c.answer.equals(event.answerId())) {
                             error(c, event.requestId(), "INVALID_ANSWER", "Sai answerId", false); return;
@@ -94,6 +95,37 @@ public class SpeechSessionService {
         }
     }
 
+    private void discard(Connection c, ClientEvent event) {
+        if (c.answer == null || !c.answer.equals(event.answerId())) {
+            error(c, event.requestId(), "INVALID_ANSWER", "Sai answerId", false);
+            return;
+        }
+        if (c.state == State.FINALIZING || c.state == State.DISCARDING) return;
+        if (c.state == State.COMPLETED) {
+            send(c, "answer.finalized", event.requestId(), c.answer, c.saved);
+            return;
+        }
+        if (c.state != State.STREAMING) {
+            error(c, event.requestId(), "INVALID_STATE", "Không có bản thu để hủy", false);
+            return;
+        }
+        c.state = State.DISCARDING;
+        Lease lease = c.lease;
+        c.lease = null;
+        workers.execute(() -> {
+            if (lease != null) lease.close();
+            synchronized (c) {
+                if (c.closed) return;
+                UUID discarded = c.answer;
+                c.answer = null;
+                c.startRequest = null;
+                c.accumulator = null;
+                c.state = State.READY;
+                send(c, "answer.discarded", event.requestId(), discarded, Map.of());
+            }
+        });
+    }
+
     private void start(Connection c, ClientEvent event) throws Exception {
         if (event.requestId().equals(c.startRequest) && c.answer != null) {
             if (!Objects.equals(event.questionTurnId(), c.prompt)) {
@@ -108,7 +140,7 @@ public class SpeechSessionService {
             else error(c, event.requestId(), "ANSWER_FAILED", "Lượt trả lời đã lỗi; dùng requestId mới nếu được phép thu lại", true);
             return;
         }
-        if (c.state == State.STREAMING || c.state == State.FINALIZING || c.state == State.STARTING) {
+        if (c.state == State.STREAMING || c.state == State.FINALIZING || c.state == State.STARTING || c.state == State.DISCARDING) {
             error(c, event.requestId(), "ANSWER_IN_PROGRESS", "Một câu trả lời đang được xử lý", false); return;
         }
         AudioFormat audio = event.audio();
@@ -167,10 +199,8 @@ public class SpeechSessionService {
                     });
                 }
             });
+            c.deadline = access.beginAnswer(c.grant.studentId(), c.grant.attemptId(), c.prompt, c.questionAttempt, c.limitSeconds);
             c.started = Instant.now();
-            c.deadline = c.started.plusSeconds(c.limitSeconds);
-            if (prompt.deadlineAt() != null && prompt.deadlineAt().isBefore(c.deadline))
-                c.deadline = prompt.deadlineAt();
             c.lastActivity = c.started;
             c.state = State.STREAMING;
             send(c, "answer.started", event.requestId(), answer, Map.of("questionTurnId", c.prompt,
@@ -361,7 +391,7 @@ public class SpeechSessionService {
         }
     }
 
-    private enum State { READY, STARTING, STREAMING, FINALIZING, COMPLETED, ERROR }
+    private enum State { READY, STARTING, STREAMING, DISCARDING, FINALIZING, COMPLETED, ERROR }
     private static class Connection {
         final WebSocketSession socket;
         final SpeechTicketService.Grant grant;

@@ -64,7 +64,7 @@ public class InterviewFlow {
                         || deadline != null && !Instant.now().isBefore(deadline))
                     yield new InterviewState(attempt.getId(), Status.PROCESSING, null);
                 yield new InterviewState(attempt.getId(), Status.AWAITING_ANSWER,
-                        new InterviewState.Prompt(question.getId(), last.getId(), last.getTextContent(), deadline));
+                        new InterviewState.Prompt(question.getId(), last.getId(), last.getTextContent(), last.getDeadlineAt()));
             }
             default -> throw conflict("Lượt thi chưa sẵn sàng");
         };
