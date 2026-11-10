@@ -9,6 +9,8 @@ import cocxanhcoder.viva.exam.system.grading.entity.EvaluationStatus;
 import cocxanhcoder.viva.exam.system.grading.service.EvaluationService;
 import jakarta.validation.Valid;
 import cocxanhcoder.viva.exam.system.grading.dto.StudentResult;
+import cocxanhcoder.viva.exam.system.grading.dto.AttemptQuestionGrading;
+import cocxanhcoder.viva.exam.system.grading.dto.StudentAttemptResult;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
@@ -84,6 +86,20 @@ public class EvaluationController {
         var pageable = PageableUtils.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return ApiResponse.ok("Lấy danh sách kết quả chấm điểm thành công",
                 evaluationService.findByExam(actor(jwt), examId, status, pageable));
+    }
+
+    @GetMapping("/api/exams/{examId}/attempts/{attemptId}/grading")
+    public ResponseEntity<ApiResponse<List<AttemptQuestionGrading>>> attemptQuestions(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID examId, @PathVariable UUID attemptId) {
+        return ApiResponse.ok("Danh sách câu hỏi của lượt thi",
+                evaluationService.findAttemptQuestions(actor(jwt), examId, attemptId));
+    }
+
+    @GetMapping("/api/v1/student/exams/{attemptId}/result-summary")
+    public ResponseEntity<ApiResponse<StudentAttemptResult>> studentResultSummary(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID attemptId) {
+        return ApiResponse.ok("Kết quả đã công bố của lượt thi",
+                evaluationService.studentResultSummary(actor(jwt), attemptId));
     }
 
     private UUID actor(Jwt jwt) {

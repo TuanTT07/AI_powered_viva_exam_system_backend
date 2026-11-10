@@ -283,6 +283,48 @@ class InterviewPostgresTest {
                 .andExpect(jsonPath("$.data").isEmpty());
     }
 
+    @Test
+    void lecturerCanSaveAllThreeQuestionsStartingWithNoEvaluations() throws Exception {
+        seed(3, 0);
+        db.update("update users set role_id = (select id from roles where role_name = 'LECTURER') where id = ?", otherStudent);
+        db.update("insert into course_lecturers (course_id, lecturer_id) values (?, ?)", course, otherStudent);
+        db.update("update exam_attempts set status = 'COMPLETED' where id = ?", attempt);
+        db.update("update question_attempts set status = 'COMPLETED' where exam_attempt_id = ?", attempt);
+        UUID rubric = UUID.randomUUID(), criterion = UUID.randomUUID();
+        db.update("insert into rubrics (id, rubric_name, course_id) values (?, 'Test rubric', ?)", rubric, course);
+        db.update("insert into rubric_criteria (id, rubric_id, criterion_name, max_score) values (?, ?, 'Knowledge', 10)", criterion, rubric);
+        db.update("update questions set rubric_id = ? where course_id = ?", rubric, course);
+        var lecturer = jwt().jwt(token -> token.subject(otherStudent.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_LECTURER"));
+        var owner = jwt().jwt(token -> token.subject(student.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+        String inventory = "/api/exams/" + exam + "/attempts/" + attempt + "/grading";
+        mvc.perform(get(inventory).with(lecturer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].questionOrder").value(1))
+                .andExpect(jsonPath("$.data[2].questionOrder").value(3));
+        assertEquals(0, db.queryForObject("select count(*) from evaluations e join question_attempts q on q.id = e.question_attempt_id where q.exam_attempt_id = ?", Integer.class, attempt));
+        verifyNoInteractions(ai);
+        var ids = db.queryForList("select id from question_attempts where exam_attempt_id = ? order by question_order", UUID.class, attempt);
+        for (UUID id : ids) {
+            String base = "/api/question-attempts/" + id + "/evaluation";
+            mvc.perform(put(base + "/final").with(lecturer).contentType("application/json")
+                    .content("{\"criteria\":[{\"criterionId\":\"" + criterion + "\",\"finalScore\":8}],\"overallFeedback\":\"Confirmed\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.questionAttemptId").value(id.toString()));
+            mvc.perform(put(base + "/publish").with(lecturer)).andExpect(status().isOk());
+        }
+        mvc.perform(get("/api/v1/student/exams/" + attempt + "/result-summary").with(owner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalQuestions").value(3))
+                .andExpect(jsonPath("$.data.questions.length()").value(3));
+        mvc.perform(get(inventory).with(jwt().jwt(t -> t.subject(student.toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/student/exams/" + attempt + "/result-summary")
+                .with(jwt().jwt(t -> t.subject(UUID.randomUUID().toString()))
+                        .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isNotFound());
+    }
+
     private void awaitCompleted() {
         await().atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertEquals(Status.COMPLETED, flow.current(student, attempt).status()));
