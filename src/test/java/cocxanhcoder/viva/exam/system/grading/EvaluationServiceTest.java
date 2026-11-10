@@ -3,6 +3,7 @@ package cocxanhcoder.viva.exam.system.grading;
 import cocxanhcoder.viva.exam.system.academic.entity.Course;
 import cocxanhcoder.viva.exam.system.academic.entity.User;
 import cocxanhcoder.viva.exam.system.common.exception.BusinessException;
+import cocxanhcoder.viva.exam.system.common.exception.ResourceNotFoundException;
 import cocxanhcoder.viva.exam.system.exammgt.entity.Exam;
 import cocxanhcoder.viva.exam.system.exammgt.entity.ExamAttempt;
 import cocxanhcoder.viva.exam.system.exammgt.entity.QuestionAttempt;
@@ -153,6 +154,60 @@ class EvaluationServiceTest {
         assertEquals("Hiểu đúng vấn đề", result.criteria().getFirst().comment());
         assertEquals(1, result.transcript().size());
         assertEquals("Câu trả lời của tôi", result.transcript().getFirst().textContent());
+    }
+
+    @Test
+    void listsAllThreeAssignedQuestionsEvenWhenOnlyFirstHasAnEvaluation() {
+        UUID actor = UUID.randomUUID();
+        Exam exam = exam();
+        QuestionAttempt first = sampleQuestionAttempt();
+        first.getExamAttempt().setExam(exam);
+        first.setQuestionOrder(1);
+        QuestionAttempt second = sampleQuestionAttempt();
+        second.setExamAttempt(first.getExamAttempt());
+        second.setQuestionOrder(2);
+        QuestionAttempt third = sampleQuestionAttempt();
+        third.setExamAttempt(first.getExamAttempt());
+        third.setQuestionOrder(3);
+        UUID attemptId = first.getExamAttempt().getId();
+        when(questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(attemptId))
+                .thenReturn(List.of(first, second, third));
+        Evaluation existing = new Evaluation();
+        when(evaluations.findByQuestionAttemptId(first.getId())).thenReturn(Optional.of(existing));
+        EvaluationResponse saved = mock(EvaluationResponse.class);
+        when(mapper.toResponse(existing)).thenReturn(saved);
+        EvaluationResponse draft2 = mock(EvaluationResponse.class);
+        EvaluationResponse draft3 = mock(EvaluationResponse.class);
+        when(mapper.toDraftResponse(eq(second), any(), any())).thenReturn(draft2);
+        when(mapper.toDraftResponse(eq(third), any(), any())).thenReturn(draft3);
+        var result = service.findAttemptQuestions(actor, exam.getId(), attemptId);
+        assertEquals(List.of(1, 2, 3), result.stream().map(r -> r.questionOrder()).toList());
+        assertSame(saved, result.get(0).evaluation());
+        assertSame(draft2, result.get(1).evaluation());
+        assertSame(draft3, result.get(2).evaluation());
+        verifyNoInteractions(ai);
+        verify(evaluations, never()).save(any());
+    }
+
+    @Test
+    void cannotReadQuestionsFromAnotherExam() {
+        Exam exam = exam();
+        QuestionAttempt other = sampleQuestionAttempt();
+        UUID attemptId = other.getExamAttempt().getId();
+        when(questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(attemptId)).thenReturn(List.of(other));
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.findAttemptQuestions(UUID.randomUUID(), exam.getId(), attemptId));
+        verifyNoInteractions(evaluations, transcriptTurns, mapper, ai);
+    }
+
+    @Test
+    void checksManagerBeforeReadingAssignedQuestions() {
+        Exam exam = exam();
+        UUID actor = UUID.randomUUID();
+        doThrow(new BusinessException("Forbidden")).when(access).requireManager(actor, exam.getCourse().getId());
+        assertThrows(BusinessException.class,
+                () -> service.findAttemptQuestions(actor, exam.getId(), UUID.randomUUID()));
+        verifyNoInteractions(questionAttempts, evaluations, transcriptTurns, mapper, ai);
     }
 
     private QuestionAttempt sampleQuestionAttempt() {

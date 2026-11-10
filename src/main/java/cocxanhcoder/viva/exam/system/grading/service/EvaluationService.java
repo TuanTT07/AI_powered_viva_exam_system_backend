@@ -26,6 +26,8 @@ import cocxanhcoder.viva.exam.system.questionbank.service.CourseAccessService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import cocxanhcoder.viva.exam.system.grading.dto.StudentResult;
+import cocxanhcoder.viva.exam.system.grading.dto.AttemptQuestionGrading;
+import cocxanhcoder.viva.exam.system.grading.dto.StudentAttemptResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -229,6 +231,14 @@ public class EvaluationService {
                 .toList();
     }
 
+    public StudentAttemptResult studentResultSummary(UUID studentId, UUID attemptId) {
+        var assigned = questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(attemptId);
+        if (assigned.isEmpty() || assigned.stream().anyMatch(q ->
+                !q.getExamAttempt().getStudent().getId().equals(studentId)))
+            throw new ResourceNotFoundException("ExamAttempt", attemptId);
+        return new StudentAttemptResult(assigned.size(), publishedResults(studentId, attemptId));
+    }
+
     private StudentResult toStudentResult(Evaluation evaluation) {
         QuestionAttempt qa = evaluation.getQuestionAttempt();
         List<CriterionScore> criteria = evaluation.getEvaluationDetails() != null
@@ -269,6 +279,29 @@ public class EvaluationService {
                 ? evaluations.findByQuestionAttempt_ExamAttempt_Exam_Course_Id(courseId, pageable)
                 : evaluations.findByQuestionAttempt_ExamAttempt_Exam_Course_IdAndStatus(courseId, status, pageable);
         return PageResponse.from(page.map(mapper::toResponse));
+    }
+
+    /** Read-only inventory: do not trigger AI grading or persist drafts on a GET. */
+    public List<AttemptQuestionGrading> findAttemptQuestions(UUID actorId, UUID examId, UUID attemptId) {
+        var exam = exams.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam", examId));
+        courseAccess.requireManager(actorId, exam.getCourse().getId());
+        var assigned = questionAttempts.findByExamAttemptIdOrderByQuestionOrderAsc(attemptId);
+        if (assigned.stream().anyMatch(q -> !q.getExamAttempt().getExam().getId().equals(examId)))
+            throw new ResourceNotFoundException("ExamAttempt", attemptId);
+        return assigned.stream().map(qa -> {
+            var existing = evaluations.findByQuestionAttemptId(qa.getId()).orElse(null);
+            EvaluationResponse response;
+            if (existing != null) {
+                response = mapper.toResponse(existing);
+            } else {
+                var turns = transcriptTurns.findByQuestionAttemptIdOrderByTurnOrderAsc(qa.getId()).stream()
+                        .filter(t -> t.belongsToCurrentRun(qa)).toList();
+                var rubric = qa.getQuestion() != null ? qa.getQuestion().getRubric() : null;
+                response = mapper.toDraftResponse(qa, turns, rubric);
+            }
+            return new AttemptQuestionGrading(qa.getQuestionOrder(), qa.getStatus(), response);
+        }).toList();
     }
 
     public PageResponse<EvaluationResponse> findByExam(UUID actorId, UUID examId, EvaluationStatus status, Pageable pageable) {
